@@ -82,6 +82,7 @@
                     "tags": tags,
                     "headers": HEADERS
                 });
+                count++;
             });
             console.log(`开始下载，共计${count}张图`)
             return data;
