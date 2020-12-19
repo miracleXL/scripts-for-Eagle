@@ -23,6 +23,7 @@
         const EAGLE_IMPORT_API_URL = `${EAGLE_SERVER_URL}/api/item/addFromURL`;
         const EAGLE_IMPORT_API_URLS = `${EAGLE_SERVER_URL}/api/item/addFromURLs`;
         const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
+        const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
         //Pixiv页面中的标签和标签翻译
         const TAG_CLASS = "gtm-new-work-tag-event-click";
@@ -34,6 +35,18 @@
                     "sec-fetch-mode": "no-cors",
                     "sec-fetch-site": "cross-site",
                 };
+
+        function main(){
+            //暂时无法保存动图，如果是动图则什么都不做
+            if(document.getElementsByClassName("tu09d3-1 MNNrM").length != 0){
+                console.log("无法保存动图！");
+                return;
+            }
+            let image = document.getElementsByClassName("sc-1qpw8k9-3 ckeRFU")[0];
+            let mode = image ? "image" : "manga" ;
+
+            addButtons();
+        }
 
         function download(data){
             GM_xmlhttpRequest({
@@ -49,7 +62,7 @@
             });
         }
 
-        function downloadAll(data){
+        async function downloadAll(data){
             GM_xmlhttpRequest({
                 url: EAGLE_IMPORT_API_URLS,
                 method: "POST",
@@ -63,13 +76,75 @@
             });
         }
 
+        // 获取文件夹id
+        async function getFolderId(author){
+            let folders = await getFolders();
+            let dlFolder;
+            if(folders){
+                for(let folder of folders){
+                    if(folder.name === "画师"){
+                        for(let f of folder.children){
+                            if(f.name === author) dlFolder = f;
+                        }
+                    }
+                    if(folder.name === author){
+                        dlFolder = folder;
+                    }
+                }
+                if(dlFolder === undefined) dlFolder = await creatFolder(author);
+            }
+            else{
+                console.log("获取文件夹信息失败！");
+                alert("下载失败！");
+                return;
+            }
+            return dlFolder.id;
+        }
+
+        // 获取文件夹
+        function getFolders(){
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    url: EAGLE_GET_FOLDERS_API_URL,
+                    method: "GET",
+                    redirect:'follow',
+                    onload: function(response) {
+                        if(response.status != 200){
+                            reject();
+                        }
+                        resolve(JSON.parse(response.response).data);
+                    }
+                });
+            })
+        }
+
+        // 创建文件夹
+        function creatFolder(folderName){
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    url: EAGLE_CREATE_FOLDER_API_URL,
+                    method: "POST",
+                    data: JSON.stringify({ folderName: folderName }),
+                    onload: function(response) {
+                        var result = JSON.parse(response.response);
+                        if (result.status === "success" && result.data && result.data.id) {
+                            return resolve(result.data);
+                        }
+                        else{
+                            return reject();
+                        }
+                    }
+                })
+            })
+        }
+
         function getImagesData(){
             let images = document.getElementsByClassName("sc-1qpw8k9-3 ckeRFU");
             images = images[0] ? images : document.getElementsByClassName("sc-1qpw8k9-3 lmFZOm");
             let data = {"items":[]}
             let name = document.getElementsByClassName("sc-1u8nu73-3 feoVvS")[0].textContent;
             //把pixiv标签和标签翻译添加进eagle标签
-            let tags = [document.getElementsByClassName("sc-10gpz4q-5 bUnVlH")[0].text];
+            let tags = [];
             document.getElementsByClassName(TAG_CLASS).forEach(item => {tags.push(item.text);});
             document.getElementsByClassName(TAG_TRANS_CLASS).forEach(item => {tags.push(item.text);});
             let count = 0;
@@ -84,8 +159,9 @@
                 });
                 count++;
             });
-            console.log(`开始下载，共计${count}张图`)
-            return data;
+            console.log(`准备开始下载，共计${count}张图`)
+            let author = document.getElementsByClassName("sc-10gpz4q-5 bUnVlH")[0].textContent.split("@")[0];
+            return [data,author];
         };
 
         //在收藏按钮旁边添加下载按钮
@@ -99,23 +175,20 @@
                 divs_section.appendChild(button);
             }
             //绑定点击按钮时下载事件
-            button.addEventListener("click", function(){
-                let data = getImagesData();
+            button.addEventListener("click", async function(){
+                let [data, author] = getImagesData();
                 console.log(data);
+                let dlFolderId = await getFolderId(author);
+                if(dlFolderId === undefined){
+                    console.log("创建文件夹失败！尝试直接下载……")
+                }
+                else{
+                    data.folderId = dlFolderId;
+                }
                 downloadAll(data);
             });
         };
 
-        setTimeout(function(){
-            //暂时无法保存动图，如果是动图则什么都不做
-            if(document.getElementsByClassName("tu09d3-1 MNNrM").length != 0){
-                console.log("无法保存动图！");
-                return;
-            }
-            let image = document.getElementsByClassName("sc-1qpw8k9-3 ckeRFU")[0];
-            let mode = image ? "image" : "manga" ;
-
-            addButtons();
-        }, 1000);
+        setTimeout(main, 1000);
     }
 )();
