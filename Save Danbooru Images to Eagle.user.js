@@ -1,20 +1,22 @@
 // ==UserScript==
 // @name                Save Danbooru Images to Eagle
-// @name:zh             批量导入 Danbooru 图片到 Eagle
-// @name:zh-CN          批量导入 Danbooru 图片到 Eagle
-// @name:zh-TW          批次導入 Danbooru 圖片到 Eagle
+// @name:zh             导入 Danbooru 图片到 Eagle
+// @name:zh-CN          导入 Danbooru 图片到 Eagle
+// @name:zh-TW          導入 Danbooru 圖片到 Eagle
 // @name:ja-JP          Danbooruの画像を Eagle に保存
 
 // @description         Save images from Danbooru to Eagle.
 // @description:zh      在danbooru网页上添加下载按钮直接导入Eagle
 
-// @author              MiracleXL
+// @author              miracleXL
 // @namespace           None
 // @homepageURL         None
 // @icon                None
 
 // @match               danbooru.donmai.us/posts/*
 // @match               safebooru.donmai.us/posts/*
+// @match               danbooru.donmai.us/pools/*
+// @match               safebooru.domai.us/pools/*
 // @connect             danbooru.donmai.us
 // @connect             safebooru.donmai.us
 // @connect             localhost
@@ -22,7 +24,7 @@
 
 // @date                2020/12/22
 // @modified            2020/11/23
-// @version             0.0.1
+// @version             0.1.0
 
 // ==/UserScript==
 
@@ -36,25 +38,46 @@
     const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
+    let mode = document.URL.split("/")[3];
+
     function addButton(){
         let button = document.createElement("button");
         button.className = "ui-button ui-widget ui-corner-all";
-        button.innerText = "下载";
-        let buttons_div = document.getElementsByClassName("fav-buttons")[0];
-        buttons_div.firstElementChild.style.display = "inline";
-        buttons_div.appendChild(button);
-        //绑定下载事件
-        button.addEventListener("click",async ()=>{
-            let [data,pool] = getImageData();
-            if(pool){
-                let folderId = await getFolderId(pool);
-                if(folderId){
-                    data.folderId = folderId;
+        if(mode === "posts"){
+            button.innerText = "下载";
+            let buttons_div = document.getElementsByClassName("fav-buttons")[0];
+            buttons_div.firstElementChild.style.display = "inline";
+            buttons_div.appendChild(button);
+            //绑定下载事件
+            button.addEventListener("click",async ()=>{
+                let [data,pool] = getImageData();
+                if(pool){
+                    let folderId = await getFolderId(pool);
+                    if(folderId){
+                        data.folderId = folderId;
+                    }
                 }
-            }
-            console.log(data);
-            download(data);
-        })
+                console.log(data);
+                download(data);
+            })
+        }
+        else{
+            button.innerText = "下载全部";
+            let buttonPos = document.getElementById("description");
+            buttonPos.appendChild(button);
+            //绑定下载事件
+            button.addEventListener("click",async ()=>{
+                let [data,pool] = getPoolData();
+                if(pool){
+                    let folderId = await getFolderId(pool);
+                    if(folderId){
+                        data.folderId = folderId;
+                    }
+                }
+                console.log(data);
+                downloadAll(data);
+            })
+        }
     }
 
     addButton();
@@ -68,6 +91,20 @@
                 if(response.statusText !== "OK"){
                     console.log(response);
                     alert("下载失败！")
+                }
+            }
+        });
+    }
+
+    function downloadAll(data){
+        GM_xmlhttpRequest({
+            url: EAGLE_IMPORT_API_URLS,
+            method: "POST",
+            data: JSON.stringify(data),
+            onload: function(response) {
+                if(response.statusText !== "OK"){
+                    alert("请检查eagle是否打开！");
+                    console.log("下载失败！")
                 }
             }
         });
@@ -103,6 +140,32 @@
         };
         return [data,poolname];
     };
+
+    function getPoolData(){
+        try{
+            var name = document.getElementsByClassName("pool-category-series")[0].textContent;
+        }catch(e){
+            name = document.title;
+            console.log(e);
+        }
+        let data = {
+            "items":[]
+        };
+        let count = 0;
+        for(let article of document.getElementsByTagName("article")){
+            let item = {
+                "url": article.getAttribute("data-file-url"),
+                "name": name + "_" + count,
+                "website": article.getAttribute("data-normalized-source"),
+                "tags": article.getAttribute("data-tags").split(" "),
+                "headers": {
+                    "referer" : document.URL
+                }
+            };
+            data.items.push(item);
+        }
+        return [data,name];
+    }
 
     // 获取文件夹id
     async function getFolderId(pool){
