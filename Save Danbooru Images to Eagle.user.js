@@ -9,9 +9,9 @@
 // @description:zh      在danbooru网页上添加下载按钮直接导入Eagle
 
 // @author              miracleXL
-// @namespace           None
-// @homepageURL         None
-// @icon                None
+// @namespace           https://github.com/miracleXL
+// @homepageURL         https://github.com/miracleXL/scripts-for-Eagle
+// @icon                https://danbooru.donmai.us/favicon.ico
 
 // @match               danbooru.donmai.us/posts/*
 // @match               safebooru.donmai.us/posts/*

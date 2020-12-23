@@ -1,7 +1,8 @@
 // ==UserScript==
-// @name         Save Pixiv pictures to Eagle
+// @name         Save Pixiv Pictures to Eagle
 // @name:zh-CN   下载Pixiv图片到Eagle
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/miracleXL
+// @icon		 https://www.pixiv.net/favicon.ico
 // @version      0.2.2
 // @description  Collect pictures in pixiv to eagle.
 // @author       miracleXL
@@ -148,8 +149,8 @@
     }
 
     function getImageData(){
-        let images = document.getElementsByClassName("sc-1qpw8k9-3 ckeRFU")[0];     // 单图
-        images = images ? images : document.getElementsByClassName("sc-1qpw8k9-3 lmFZOm")[0];   //多图
+        let images = document.getElementsByClassName("sc-1qpw8k9-3 ckeRFU")[0];// 单图
+        images = images ? images : document.getElementsByClassName("sc-1qpw8k9-3 lmFZOm")[0];//多图
         //获取标题
         let name = document.getElementsByClassName("sc-1u8nu73-3 feoVvS")[0];
         if(name === undefined){
@@ -182,8 +183,8 @@
 
 
     function getImagesData(){
-        let images = document.getElementsByClassName("sc-1qpw8k9-3 ckeRFU");    //单图
-        images = images[0] ? images : document.getElementsByClassName("sc-1qpw8k9-3 lmFZOm");   //多图
+        let images = document.getElementsByClassName("sc-1qpw8k9-3 ckeRFU");//单图
+        images = images[0] ? images : document.getElementsByClassName("sc-1qpw8k9-3 lmFZOm");//多图
         let data = {"items":[]}
         //获取标题
         let name = document.getElementsByClassName("sc-1u8nu73-3 feoVvS")[0];
@@ -196,6 +197,7 @@
         let annotation = document.getElementById("expandable-paragraph-0");
         if(annotation){annotation = annotation.textContent;}
         else{annotation = "";}
+        console.log(annotation)
         //把pixiv标签和标签翻译添加进eagle标签
         let tags = [];
         let firstTag = document.getElementsByClassName("nqp4a5-0")[0];
@@ -223,7 +225,7 @@
     };
 
     function changeStyle(button){
-        button.innerHTML = '<button type="button" id="download" class="_1vHxmVH _35vRH4a"><span class="_3uX7m3X">下载</span></button>';
+        button.className = "_1vHxmVH _35vRH4a";
     }
 
     //在收藏按钮旁边添加下载按钮
