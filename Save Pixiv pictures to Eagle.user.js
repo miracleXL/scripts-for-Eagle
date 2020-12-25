@@ -43,6 +43,7 @@
     let loadMain = setInterval(main, 1000);
 
     function main(){
+        window.clearInterval(loadMain);
         let divs_section = document.getElementsByClassName("sc-181ts2x-0 jPZrYy")[0];
         if(divs_section === undefined) return;
         //暂时无法保存动图，如果是动图则什么都不做
@@ -55,7 +56,6 @@
 
         addButtons(mode,divs_section);
         document.getElementsByClassName("sc-1yvhotl-2 hGipVQ")[0].onchange = main;
-        window.clearInterval(loadMain);
     }
 
     function download(data){
@@ -272,7 +272,7 @@
                     data.folderId = dlFolderId;
                 }
                 download(data);
-                changeStyle(button);
+                changeStyle(button2);
             })
         }
     };
