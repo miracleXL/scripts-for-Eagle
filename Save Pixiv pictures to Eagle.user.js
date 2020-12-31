@@ -220,7 +220,8 @@
             count++;
         });
         console.log(`准备开始下载，共计${count}张图`)
-        let author = document.getElementsByClassName("sc-10gpz4q-5 bUnVlH")[0].textContent.split("@")[0];
+        // 获取作者名
+        let author = document.getElementsByClassName("sc-10gpz4q-5 bUnVlH")[0].textContent.split("@")[0].split("＠")[0];
         return [data,author];
     };
 
