@@ -1,9 +1,6 @@
 // ==UserScript==
 // @name                Save Danbooru Images to Eagle
 // @name:zh             导入 Danbooru 图片到 Eagle
-// @name:zh-CN          导入 Danbooru 图片到 Eagle
-// @name:zh-TW          導入 Danbooru 圖片到 Eagle
-// @name:ja-JP          Danbooruの画像を Eagle に保存
 
 // @description         Save images from Danbooru to Eagle.
 // @description:zh      在danbooru网页上添加下载按钮直接导入Eagle

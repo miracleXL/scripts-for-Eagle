@@ -1,16 +1,17 @@
 // ==UserScript==
-// @name         Save Pixiv Pictures to Eagle
-// @name:zh-CN   下载Pixiv图片到Eagle
-// @namespace    https://github.com/miracleXL
-// @icon		 https://www.pixiv.net/favicon.ico
-// @version      0.2.3
-// @description  Collect pictures in pixiv to eagle.
-// @author       miracleXL
-// @match        https://www.pixiv.net/artworks/*
-// @connect      localhost
-// @connect      www.pixiv.net
-// @grant        GM_xmlhttpRequest
-// @grant        GM_registerMenuCommand
+// @name            Save Pixiv Pictures to Eagle
+// @name:zh         下载Pixiv图片到Eagle
+// @namespace       https://github.com/miracleXL
+// @icon		    https://www.pixiv.net/favicon.ico
+// @version         0.2.3
+// @description     Collect pictures in pixiv to eagle.
+// @description:zh  在Pixiv上添加可以导入图片到Eagle的下载按钮
+// @author          miracleXL
+// @match           https://www.pixiv.net/artworks/*
+// @connect         localhost
+// @connect         www.pixiv.net
+// @grant           GM_xmlhttpRequest
+// @grant           GM_registerMenuCommand
 // ==/UserScript==
 
 (function(){
