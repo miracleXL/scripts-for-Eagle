@@ -3,7 +3,7 @@
 // @name:zh-CN   下载Pixiv图片到Eagle
 // @namespace    https://github.com/miracleXL
 // @icon		 https://www.pixiv.net/favicon.ico
-// @version      0.2.2
+// @version      0.2.3
 // @description  Collect pictures in pixiv to eagle.
 // @author       miracleXL
 // @match        https://www.pixiv.net/artworks/*
@@ -197,7 +197,6 @@
         let annotation = document.getElementById("expandable-paragraph-0");
         if(annotation){annotation = annotation.textContent;}
         else{annotation = "";}
-        console.log(annotation)
         //把pixiv标签和标签翻译添加进eagle标签
         let tags = [];
         let firstTag = document.getElementsByClassName("nqp4a5-0")[0];
@@ -221,7 +220,13 @@
         });
         console.log(`准备开始下载，共计${count}张图`)
         // 获取作者名
-        let author = document.getElementsByClassName("sc-10gpz4q-5 bUnVlH")[0].textContent.split("@")[0].split("＠")[0];
+        let author = document.getElementsByClassName("sc-10gpz4q-5 bUnVlH")[0].textContent;
+        // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
+        let patt = / *[@＠◆■◇☆].+/;
+        let test = author.match(patt);
+        if(test.length == 1){
+            author.replace(test[0],"");
+        }
         return [data,author];
     };
 

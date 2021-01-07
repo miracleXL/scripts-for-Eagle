@@ -29,9 +29,13 @@
 * 下载时保存所有tag
 * 下载时将图片来源修改为danbooru上标记的来源
 
+### Gelbooru
+
+仅在posts图片下方添加download按键，下载时保存标签，不创建文件夹
+
 ## 待更新
 
 * 更换下载按钮添加方式
 * 修复无法加载下载按钮的情况
 * 增加复选框
-* 编写gelbooru、konachan、yande.re下载脚本
+* 编写konachan、yande.re下载脚本
