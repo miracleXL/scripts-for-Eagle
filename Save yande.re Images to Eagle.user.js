@@ -1,16 +1,17 @@
 // ==UserScript==
-// @name                Save konachan Images to Eagle
-// @name:zh             导入konachan图片到Eagle
+// @name                Save yande.re Images to Eagle
+// @name:zh             导入yande.re图片到Eagle
 // @namespace           https://github.com/miracleXL
 // @homepageURL         https://github.com/miracleXL/scripts-for-Eagle
-// @icon                https://konachan.com/favicon.ico
+// @icon                https://yande.re/favicon.ico
 // @version             0.1.0
 
-// @description         Save images from konachan to Eagle.
-// @description:zh      导入konachan图片到Eagle
+// @description         Save images from yande.re to Eagle.
+// @description:zh      在yande.re网页上添加下载按钮直接导入Eagle
 // @author              miracleXL
-// @match               https://konachan.com/post/show/*
-// @connect             konachan.com
+// @match               yande.re/post/show/*
+// @match               yande.re/pool/show/*
+// @connect             yande.re
 // @connect             localhost
 // @grant               GM_xmlhttpRequest
 // ==/UserScript==
@@ -32,7 +33,7 @@
             let button = document.createElement("a");
             button.innerText = "下载";
             button.href = "javascript:;";
-            let buttons_div = document.getElementsByTagName('h4')[0];
+            let buttons_div = document.getElementsByClassName("js-posts-show-comments-tab")[0].parentNode;
             buttons_div.append(" | ");
             buttons_div.appendChild(button);
             //绑定下载事件
@@ -81,7 +82,7 @@
                 console.log(e);
             }
         }
-        let url = document.getElementsByClassName("original-file-unchanged")[0];
+        let url = document.getElementById("highres");
         let data = {
             "url": url.href,
             "name": document.title,
@@ -91,9 +92,15 @@
                 "referer" : document.URL
             }
         };
-        for(let tag of document.getElementsByClassName("tag-link")){
+        for(let tag of document.getElementsByClassName("tag-type-artist")){
             data.tags.push(tag.children[1].textContent);
         }
+        for(let tag of document.getElementsByClassName("tag-type-copyright")){
+            data.tags.push(tag.children[1].textContent);
+        }
+        for(let tag of document.getElementsByClassName("tag-type-general")){
+            data.tags.push(tag.children[1].textContent);
+        };
         return [data,poolName];
     };
 
