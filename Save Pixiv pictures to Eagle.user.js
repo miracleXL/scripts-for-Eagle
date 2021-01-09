@@ -1,17 +1,16 @@
 // ==UserScript==
-// @name            Save Pixiv Pictures to Eagle
-// @name:zh         下载Pixiv图片到Eagle
-// @namespace       https://github.com/miracleXL
-// @icon		    https://www.pixiv.net/favicon.ico
-// @version         0.2.3
-// @description     Collect pictures in pixiv to eagle.
-// @description:zh  在Pixiv上添加可以导入图片到Eagle的下载按钮
-// @author          miracleXL
-// @match           https://www.pixiv.net/artworks/*
-// @connect         localhost
-// @connect         www.pixiv.net
-// @grant           GM_xmlhttpRequest
-// @grant           GM_registerMenuCommand
+// @name         Save Pixiv Pictures to Eagle
+// @name:zh-CN   下载Pixiv图片到Eagle
+// @namespace    https://github.com/miracleXL
+// @icon		 https://www.pixiv.net/favicon.ico
+// @version      0.2.3
+// @description  Collect pictures in pixiv to eagle.
+// @author       miracleXL
+// @match        https://www.pixiv.net/artworks/*
+// @connect      localhost
+// @connect      www.pixiv.net
+// @grant        GM_xmlhttpRequest
+// @grant        GM_registerMenuCommand
 // ==/UserScript==
 
 (function(){
@@ -198,6 +197,7 @@
         let annotation = document.getElementById("expandable-paragraph-0");
         if(annotation){annotation = annotation.textContent;}
         else{annotation = "";}
+        console.log("annotation: "+annotation);
         //把pixiv标签和标签翻译添加进eagle标签
         let tags = [];
         let firstTag = document.getElementsByClassName("nqp4a5-0")[0];
@@ -225,7 +225,7 @@
         // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
         let patt = / *[@＠◆■◇☆].+/;
         let test = author.match(patt);
-        if(test.length == 1){
+        if(test && test.length == 1){
             author.replace(test[0],"");
         }
         return [data,author];
