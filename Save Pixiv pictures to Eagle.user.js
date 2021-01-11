@@ -3,7 +3,7 @@
 // @name:zh         下载Pixiv图片到Eagle
 // @namespace       https://github.com/miracleXL
 // @icon		    https://www.pixiv.net/favicon.ico
-// @version         0.2.3
+// @version         0.2.4
 // @description     Collect pictures in pixiv to eagle.
 // @description:zh  在Pixiv上添加可以导入图片到Eagle的下载按钮
 // @author          miracleXL
@@ -226,7 +226,7 @@
         let patt = / *[@＠◆■◇☆].+/;
         let test = author.match(patt);
         if(test && test.length == 1){
-            author.replace(test[0],"");
+            author = author.replace(test[0],"");
         }
         return [data,author];
     };
