@@ -3,7 +3,7 @@
 // @name:zh         下载Pixiv图片到Eagle
 // @namespace       https://github.com/miracleXL
 // @icon		    https://www.pixiv.net/favicon.ico
-// @version         0.2.4
+// @version         0.2.5
 // @description     Collect pictures in pixiv to eagle.
 // @description:zh  在Pixiv上添加可以导入图片到Eagle的下载按钮
 // @author          miracleXL
@@ -159,7 +159,7 @@
         }else{
             name = name.textContent;
         }
-        //获取描述
+        //获取描述(Eagle2.0版本以下因bug无法生效)
         let annotation = document.getElementById("expandable-paragraph-0");
         if(annotation){annotation = annotation.textContent;}
         else{annotation = "";}
@@ -179,6 +179,12 @@
             "headers": HEADERS
         }
         let author = document.getElementsByClassName("sc-10gpz4q-5 bUnVlH")[0].textContent.split("@")[0];
+        // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
+        let patt = / *[@＠◆■◇☆].+/;
+        let test = author.match(patt);
+        if(test && test.length === 1){
+            author = author.replace(test[0],"");
+        }
         return [data,author];
     };
 
@@ -225,7 +231,7 @@
         // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
         let patt = / *[@＠◆■◇☆].+/;
         let test = author.match(patt);
-        if(test && test.length == 1){
+        if(test && test.length === 1){
             author = author.replace(test[0],"");
         }
         return [data,author];
