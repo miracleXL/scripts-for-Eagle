@@ -1,17 +1,20 @@
 // ==UserScript==
-// @name            Save Pixiv Pictures to Eagle
-// @name:zh         下载Pixiv图片到Eagle
+// @name            下载Pixiv图片到Eagle
+// @name:en         Save Pixiv Pictures to Eagle
+// @description     在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存
+// @description:en  Collect pictures in pixiv to eagle.
+
 // @namespace       https://github.com/miracleXL
 // @icon		    https://www.pixiv.net/favicon.ico
-// @version         0.2.5
-// @description     Collect pictures in pixiv to eagle.
-// @description:zh  在Pixiv上添加可以导入图片到Eagle的下载按钮
+// @version         0.2.6
 // @author          miracleXL
 // @match           https://www.pixiv.net/artworks/*
 // @connect         localhost
 // @connect         www.pixiv.net
 // @grant           GM_xmlhttpRequest
 // @grant           GM_registerMenuCommand
+// @require         https://code.jquery.com/jquery-3.5.1.min.js
+// @require         https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
 // ==/UserScript==
 
 (function(){
@@ -29,22 +32,26 @@
     const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
+    // 是否保存标签
+    const saveTags = true;
     //Pixiv页面中的标签和标签翻译
     const TAG_CLASS = "gtm-new-work-tag-event-click";
     const TAG_TRANS_CLASS = "gtm-new-work-translate-tag-event-click";
 
-    const HEADERS = {
-                "referer": "https://www.pixiv.net/",
-                "sec-fetch-dest": "image",
-                "sec-fetch-mode": "no-cors",
-                "sec-fetch-site": "cross-site",
-            };
+    // 处理作者名多余后缀的正则
+    let patt = / *[@＠◆■◇☆].*/;
 
-    // 每秒尝试加载一次
-    let loadMain = setInterval(main, 1000);
+    const HEADERS = {
+        "referer": "https://www.pixiv.net/",
+        "sec-fetch-dest": "image",
+        "sec-fetch-mode": "no-cors",
+        "sec-fetch-site": "cross-site",
+    };
+
+    // 等待页面加载完成
+    waitForKeyElements(".sc-181ts2x-0.jPZrYy", main, false);
 
     function main(){
-        window.clearInterval(loadMain);
         let divs_section = document.getElementsByClassName("sc-181ts2x-0 jPZrYy")[0];
         if(divs_section === undefined) return;
         //暂时无法保存动图，如果是动图则什么都不做
@@ -165,12 +172,14 @@
         else{annotation = "";}
         //把pixiv标签和标签翻译添加进eagle标签
         let tags = [];
-        let firstTag = document.getElementsByClassName("nqp4a5-0")[0];
-        if(firstTag !== undefined){
-            tags.push(firstTag.textContent);
+        if(saveTags){
+            let firstTag = document.getElementsByClassName("nqp4a5-0")[0];
+            if(firstTag !== undefined){
+                tags.push(firstTag.textContent);
+            }
+            document.getElementsByClassName(TAG_CLASS).forEach(item => {tags.push(item.text);});
+            document.getElementsByClassName(TAG_TRANS_CLASS).forEach(item => {tags.push(item.text);});
         }
-        document.getElementsByClassName(TAG_CLASS).forEach(item => {tags.push(item.text);});
-        document.getElementsByClassName(TAG_TRANS_CLASS).forEach(item => {tags.push(item.text);});
         let data = {
             "url": images.href,
             "name": name,
@@ -180,7 +189,6 @@
         }
         let author = document.getElementsByClassName("sc-10gpz4q-5 bUnVlH")[0].textContent.split("@")[0];
         // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
-        let patt = / *[@＠◆■◇☆].+/;
         let test = author.match(patt);
         if(test && test.length === 1){
             author = author.replace(test[0],"");
@@ -206,12 +214,14 @@
         else{annotation = "";}
         //把pixiv标签和标签翻译添加进eagle标签
         let tags = [];
-        let firstTag = document.getElementsByClassName("nqp4a5-0")[0];
-        if(firstTag !== undefined){
-            tags.push(firstTag.textContent);
+        if(saveTags){
+            let firstTag = document.getElementsByClassName("nqp4a5-0")[0];
+            if(firstTag !== undefined){
+                tags.push(firstTag.textContent);
+            }
+            document.getElementsByClassName(TAG_CLASS).forEach(item => {tags.push(item.text);});
+            document.getElementsByClassName(TAG_TRANS_CLASS).forEach(item => {tags.push(item.text);});
         }
-        document.getElementsByClassName(TAG_CLASS).forEach(item => {tags.push(item.text);});
-        document.getElementsByClassName(TAG_TRANS_CLASS).forEach(item => {tags.push(item.text);});
         let count = 0;
         images.forEach(url => {
             if(url === undefined) return;
@@ -229,7 +239,6 @@
         // 获取作者名
         let author = document.getElementsByClassName("sc-10gpz4q-5 bUnVlH")[0].textContent;
         // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
-        let patt = / *[@＠◆■◇☆].+/;
         let test = author.match(patt);
         if(test && test.length === 1){
             author = author.replace(test[0],"");

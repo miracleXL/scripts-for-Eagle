@@ -1,13 +1,14 @@
 // ==UserScript==
-// @name                Save yande.re Images to Eagle
-// @name:zh             导入yande.re图片到Eagle
+// @name:en             Save yande.re Images to Eagle
+// @name                导入yande.re图片到Eagle
+// @description:en      Save images from yande.re to Eagle.
+// @description         在yande.re网页上添加下载按钮直接导入Eagle，仅实现post，未处理pool
+
 // @namespace           https://github.com/miracleXL
 // @homepageURL         https://github.com/miracleXL/scripts-for-Eagle
 // @icon                https://yande.re/favicon.ico
-// @version             0.1.0
+// @version             0.1.1
 
-// @description         Save images from yande.re to Eagle.
-// @description:zh      在yande.re网页上添加下载按钮直接导入Eagle
 // @author              miracleXL
 // @match               yande.re/post/show/*
 // @match               yande.re/pool/show/*
@@ -25,6 +26,9 @@
     const EAGLE_IMPORT_API_URLS = `${EAGLE_SERVER_URL}/api/item/addFromURLs`;
     const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
+
+    // 是否保存标签
+    const saveTags = true;
 
     let mode = document.URL.split("/")[3];
 
@@ -92,15 +96,17 @@
                 "referer" : document.URL
             }
         };
-        for(let tag of document.getElementsByClassName("tag-type-artist")){
-            data.tags.push(tag.children[1].textContent);
+        if(saveTags){
+            for(let tag of document.getElementsByClassName("tag-type-artist")){
+                data.tags.push(tag.children[1].textContent);
+            }
+            for(let tag of document.getElementsByClassName("tag-type-copyright")){
+                data.tags.push(tag.children[1].textContent);
+            }
+            for(let tag of document.getElementsByClassName("tag-type-general")){
+                data.tags.push(tag.children[1].textContent);
+            };
         }
-        for(let tag of document.getElementsByClassName("tag-type-copyright")){
-            data.tags.push(tag.children[1].textContent);
-        }
-        for(let tag of document.getElementsByClassName("tag-type-general")){
-            data.tags.push(tag.children[1].textContent);
-        };
         return [data,poolName];
     };
 

@@ -1,13 +1,14 @@
 // ==UserScript==
-// @name                Save konachan Images to Eagle
-// @name:zh             导入konachan图片到Eagle
+// @name:en             Save konachan Images to Eagle
+// @name                导入konachan图片到Eagle
+// @description:en      Save images from konachan to Eagle.
+// @description         导入konachan图片到Eagle，仅处理post
+
 // @namespace           https://github.com/miracleXL
 // @homepageURL         https://github.com/miracleXL/scripts-for-Eagle
 // @icon                https://konachan.com/favicon.ico
-// @version             0.1.0
+// @version             0.1.1
 
-// @description         Save images from konachan to Eagle.
-// @description:zh      导入konachan图片到Eagle
 // @author              miracleXL
 // @match               https://konachan.com/post/show/*
 // @connect             konachan.com
@@ -24,6 +25,9 @@
     const EAGLE_IMPORT_API_URLS = `${EAGLE_SERVER_URL}/api/item/addFromURLs`;
     const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
+
+    // 是否保存标签
+    const saveTags = true;
 
     let mode = document.URL.split("/")[3];
 
@@ -91,8 +95,10 @@
                 "referer" : document.URL
             }
         };
-        for(let tag of document.getElementsByClassName("tag-link")){
-            data.tags.push(tag.children[1].textContent);
+        if(saveTags){
+            for(let tag of document.getElementsByClassName("tag-link")){
+                data.tags.push(tag.children[1].textContent);
+            }
         }
         return [data,poolName];
     };

@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name                Save Danbooru Images to Eagle
-// @name:zh             导入 Danbooru 图片到 Eagle
+// @name                导入 Danbooru 图片到 Eagle
+// @name:en             Save Danbooru Images to Eagle
 
-// @description         Save images from Danbooru to Eagle.
-// @description:zh      在danbooru网页上添加下载按钮直接导入Eagle
+// @description         在danbooru网页上添加下载按钮直接导入Eagle，默认同时保存所有标签，若属于pool则会以pool名创建文件夹
+// @description:en      Save images from Danbooru to Eagle.
 
 // @author              miracleXL
 // @namespace           https://github.com/miracleXL
@@ -19,9 +19,7 @@
 // @connect             localhost
 // @grant               GM_xmlhttpRequest
 
-// @date                2020/12/22
-// @modified            2020/11/23
-// @version             0.1.0
+// @version             0.1.2
 
 // ==/UserScript==
 
@@ -34,6 +32,9 @@
     const EAGLE_IMPORT_API_URLS = `${EAGLE_SERVER_URL}/api/item/addFromURLs`;
     const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
+
+    // 是否保存标签(true/false)
+    const saveTags = true;
 
     let mode = document.URL.split("/")[3];
 
@@ -59,7 +60,7 @@
             })
         }
         else{
-            button.innerText = "下载全部";
+            button.innerText = "下载当前页全部";
             let buttonPos = document.getElementById("description");
             buttonPos.appendChild(button);
             //绑定下载事件
@@ -132,9 +133,11 @@
                 "referer" : document.URL
             }
         };
-        for(let tag of document.getElementsByClassName("search-tag")){
-            data.tags.push(tag.textContent);
-        };
+        if(saveTags){
+            for(let tag of document.getElementsByClassName("search-tag")){
+                data.tags.push(tag.textContent);
+            };
+        }
         return [data,poolname];
     };
 
@@ -154,7 +157,7 @@
                 "url": article.getAttribute("data-file-url"),
                 "name": name + "_" + count,
                 "website": article.getAttribute("data-normalized-source"),
-                "tags": article.getAttribute("data-tags").split(" "),
+                "tags": saveTags ? article.getAttribute("data-tags").split(" ") : [],
                 "headers": {
                     "referer" : document.URL
                 }
