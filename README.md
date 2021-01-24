@@ -2,7 +2,9 @@
 
 为Eagle编写的油猴脚本，预定实现导入pixiv和booru图站图片功能
 
-## 已实现  
+## 已实现
+
+所有脚本默认保存标签，若不需要请将脚本中saveTags项改为false
 
 ### Pixiv  
 

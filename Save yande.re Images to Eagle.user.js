@@ -1,8 +1,10 @@
 // ==UserScript==
-// @name:en             Save yande.re Images to Eagle
-// @name                导入yande.re图片到Eagle
-// @description:en      Save images from yande.re to Eagle.
-// @description         在yande.re网页上添加下载按钮直接导入Eagle，仅实现post，未处理pool
+// @name                Save yande.re Images to Eagle
+// @name:zh             导入yande.re图片到Eagle
+// @name:zh-CN          导入yande.re图片到Eagle
+// @description         Save images from yande.re to Eagle.
+// @description:zh      在yande.re网页上添加下载按钮直接导入Eagle，仅实现post，未处理pool
+// @description:zh-CN   在yande.re网页上添加下载按钮直接导入Eagle，仅实现post，未处理pool
 
 // @namespace           https://github.com/miracleXL
 // @homepageURL         https://github.com/miracleXL/scripts-for-Eagle

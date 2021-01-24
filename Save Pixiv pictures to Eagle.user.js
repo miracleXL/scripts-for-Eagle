@@ -1,20 +1,22 @@
 // ==UserScript==
-// @name            下载Pixiv图片到Eagle
-// @name:en         Save Pixiv Pictures to Eagle
-// @description     在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存
-// @description:en  Collect pictures in pixiv to eagle.
+// @name                    Save Pixiv Pictures to Eagle
+// @name:zh                 下载Pixiv图片到Eagle
+// @name:zh-CN              下载Pixiv图片到Eagle
+// @description             Collect pictures in pixiv to eagle.
+// @description:zh          在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存
+// @description:zh-CN       在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存
 
-// @namespace       https://github.com/miracleXL
-// @icon		    https://www.pixiv.net/favicon.ico
-// @version         0.2.6
-// @author          miracleXL
-// @match           https://www.pixiv.net/artworks/*
-// @connect         localhost
-// @connect         www.pixiv.net
-// @grant           GM_xmlhttpRequest
-// @grant           GM_registerMenuCommand
-// @require         https://code.jquery.com/jquery-3.5.1.min.js
-// @require         https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
+// @namespace               https://github.com/miracleXL
+// @icon		            https://www.pixiv.net/favicon.ico
+// @version                 0.2.6
+// @author                  miracleXL
+// @match                   https://www.pixiv.net/artworks/*
+// @connect                 localhost
+// @connect                 www.pixiv.net
+// @grant                   GM_xmlhttpRequest
+// @grant                   GM_registerMenuCommand
+// @require                 https://code.jquery.com/jquery-3.5.1.min.js
+// @require                 https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
 // ==/UserScript==
 
 (function(){

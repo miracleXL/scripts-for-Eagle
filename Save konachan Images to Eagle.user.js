@@ -1,8 +1,10 @@
 // ==UserScript==
-// @name:en             Save konachan Images to Eagle
-// @name                导入konachan图片到Eagle
-// @description:en      Save images from konachan to Eagle.
-// @description         导入konachan图片到Eagle，仅处理post
+// @name                Save konachan Images to Eagle
+// @name:zh             导入konachan图片到Eagle
+// @name:zh-CN          导入konachan图片到Eagle
+// @description         Save images from konachan to Eagle.
+// @description:zh      导入konachan图片到Eagle，仅处理post
+// @description:zh-CN   导入konachan图片到Eagle，仅处理post
 
 // @namespace           https://github.com/miracleXL
 // @homepageURL         https://github.com/miracleXL/scripts-for-Eagle

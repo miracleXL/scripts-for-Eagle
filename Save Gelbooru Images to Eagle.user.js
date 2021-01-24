@@ -1,8 +1,10 @@
 // ==UserScript==
-// @name:en             Save Gelbooru Images to Eagle
-// @name                导入Gelbooru图片到Eagle
-// @description:en      Save images from Gelbooru to Eagle.
-// @description         在Gelbooru网页上添加下载按钮直接导入Eagle，仅处理post
+// @name                Save Gelbooru Images to Eagle
+// @name:zh             导入Gelbooru图片到Eagle
+// @name:zh-CN          导入Gelbooru图片到Eagle
+// @description         Save images from Gelbooru to Eagle.
+// @description:zh      在Gelbooru网页上添加下载按钮直接导入Eagle，仅处理post
+// @description:zh-CN   在Gelbooru网页上添加下载按钮直接导入Eagle，仅处理post
 
 // @namespace           https://github.com/miracleXL
 // @homepageURL         https://github.com/miracleXL/scripts-for-Eagle

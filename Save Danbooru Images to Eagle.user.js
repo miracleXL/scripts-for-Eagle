@@ -1,9 +1,11 @@
 // ==UserScript==
-// @name                导入 Danbooru 图片到 Eagle
-// @name:en             Save Danbooru Images to Eagle
+// @name                Save Danbooru Images to Eagle
+// @name:zh             导入 Danbooru 图片到 Eagle
+// @name:zh-CN          导入 Danbooru 图片到 Eagle
 
-// @description         在danbooru网页上添加下载按钮直接导入Eagle，默认同时保存所有标签，若属于pool则会以pool名创建文件夹
-// @description:en      Save images from Danbooru to Eagle.
+// @description         Save images from Danbooru to Eagle.
+// @description:zh      在danbooru网页上添加下载按钮直接导入Eagle，默认同时保存所有标签，若属于pool则会以pool名创建文件夹
+// @description:zh-CN   在danbooru网页上添加下载按钮直接导入Eagle，默认同时保存所有标签，若属于pool则会以pool名创建文件夹
 
 // @author              miracleXL
 // @namespace           https://github.com/miracleXL
