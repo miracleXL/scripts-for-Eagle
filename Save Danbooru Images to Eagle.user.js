@@ -21,7 +21,7 @@
 // @connect             localhost
 // @grant               GM_xmlhttpRequest
 
-// @version             0.1.2
+// @version             0.1.3
 
 // ==/UserScript==
 
@@ -57,7 +57,7 @@
                         data.folderId = folderId;
                     }
                 }
-                console.log(data);
+                // console.log(data);
                 download(data);
             })
         }
@@ -74,7 +74,7 @@
                         data.folderId = folderId;
                     }
                 }
-                console.log(data);
+                // console.log(data);
                 downloadAll(data);
             })
         }
@@ -126,10 +126,11 @@
                 name = document.title;
             }
         }
+        let website = document.getElementById("post-info-source").firstElementChild?.href;
         let data = {
             "url": document.getElementById("post-option-view-original").firstElementChild.href,
             "name": name,
-            "website": document.getElementById("post-info-source").firstElementChild.href,
+            "website": website ? website : document.URL,
             "tags": [],
             "headers": {
                 "referer" : document.URL
