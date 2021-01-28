@@ -32,6 +32,7 @@
     const tagAuthor = false; // 是否将作者名加入标签
     const addToFavor = true; // 下载时是否同时加入收藏
     const enableMainpage = true; // 首页添加按钮，目前实现方式过于丑陋，等学会svg绘图再修改图标
+    const searchDirName = "画师"; // 判断是否需要创建文件夹时搜索的范围，仅搜索该文件夹内和最外层
     // 设置项结束
 
     //Pixiv页面中的标签和标签翻译
@@ -210,7 +211,7 @@
         let dlFolder;
         if(folders){
             for(let folder of folders){
-                if(folder.name === "画师"){
+                if(folder.name === searchDirName){
                     for(let f of folder.children){
                         if(f.name === author) dlFolder = f;
                     }
@@ -401,11 +402,13 @@
         pos.appendChild(button);
         button.setAttribute("class","dl_to_eagle");
         button.setAttribute("type", "button");
+        button.setAttribute("title", "下载这张图到Eagle");
         let icon = document.createElement("svg");
         icon.setAttribute("viewBox", "0 0 32 32");
-        icon.setAttribute("width", 32);
-        icon.setAttribute("height", 32);
-        icon.innerHTML = '<line x1="16" y1="0" x2="16" y2="32"></line>\n<line x1="0" y1="16" x2="32" y2="16"></line>';
+        // icon.setAttribute("xmlns","http://www.w3.org/2000/svg")
+        icon.innerHTML = `<line y2="16" x2="32" y1="16" x1="0" stroke-width="1.5" stroke="#000" fill="none"/><line y2="32" x2="16" y1="0" x1="16" stroke-width="1.5" stroke="#000" fill="none"/>`;
+        icon.style["width"] = "32px";
+        icon.style["height"] = "32px";
         button.appendChild(icon);
         button.addEventListener("click", ()=>{
             getImagePage(pos.parentElement.previousSibling.href).then(async ([data, author])=>{
