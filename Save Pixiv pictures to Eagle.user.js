@@ -48,7 +48,8 @@
     const BUTTON_POS = ".sc-181ts2x-0.jPZrYy"; // 下载按键位置
     const PIC_SRC = ".sc-1qpw8k9-3.ckeRFU"; // 单图
     const PICS_SRC = ".sc-1qpw8k9-3.lmFZOm"; // 多图
-    const CLICK_POS = ".sc-1mz6e1e-1.kyYawS"; // 多图时模拟点击位置
+    const CLICK_POS1 = ".sc-1mz6e1e-1.kyYawS"; // 多图时侦听点击位置
+    const CLICK_POS2 = ".emr523-0.cwSjFV"; // 多图时侦听点击位置
     const UGO_SRC = ".tu09d3-1.MNNrM"; // 动图
     // 处理作者名多余后缀的正则
     let patt = / *[@＠◆■◇☆：:\\\/].*/;
@@ -186,26 +187,31 @@
             downloadAll(data);
             changeStyle(button);
         });
-        let clickpos = $(CLICK_POS);
+        function changeButton(){
+            $("span",button)[0].innerText = "下载全部";
+            let button2 = createButton("下载选择");
+            pos[0].appendChild(button2);
+            button2.addEventListener("click", async () => {
+                let [data, author] = getSelectData();
+                let dlFolderId = await getFolderId(author);
+                if (dlFolderId === undefined) {
+                    console.log("创建文件夹失败！尝试直接下载……");
+                }
+                else {
+                    data.folderId = dlFolderId;
+                }
+                downloadAll(data);
+                changeStyle(button2);
+            });
+            waitForKeyElements(".sc-1mz6e1e-1.QBVJO.gtm-illust-work-scroll-finish-reading", addMangaCheckbox, true);
+        }
+        let clickpos = $(CLICK_POS1);
         if(clickpos.length !== 0){
-            clickpos[0].addEventListener("click",()=>{
-                $("span",button)[0].innerText = "下载全部";
-                let button2 = createButton("下载选择");
-                pos[0].appendChild(button2);
-                button2.addEventListener("click", async () => {
-                    let [data, author] = getSelectData();
-                    let dlFolderId = await getFolderId(author);
-                    if (dlFolderId === undefined) {
-                        console.log("创建文件夹失败！尝试直接下载……");
-                    }
-                    else {
-                        data.folderId = dlFolderId;
-                    }
-                    downloadAll(data);
-                    changeStyle(button2);
-                });
-                waitForKeyElements(".sc-1mz6e1e-1.QBVJO.gtm-illust-work-scroll-finish-reading", addMangaCheckbox, true);
-            })
+            clickpos[0].addEventListener("click",changeButton)
+        }
+        clickpos = $(CLICK_POS2);
+        if(clickpos.length !== 0){
+            clickpos[0].addEventListener("click",changeButton)
         }
     }
 
