@@ -3,12 +3,12 @@
 // @name:zh                 下载Pixiv图片到Eagle
 // @name:zh-CN              下载Pixiv图片到Eagle
 // @description             Collect pictures in pixiv to eagle.
-// @description:zh          在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。新增首页添加下载按钮，下次再优化图标。
-// @description:zh-CN       在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。新增首页批量下载按钮，下次再优化图标。
+// @description:zh          在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。新增首页、关注用户新作品页、收藏页下载按钮。
+// @description:zh-CN       在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。新增首页、关注用户新作品页、收藏页下载按钮。
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.3.0
+// @version                 0.3.2
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -31,25 +31,25 @@
     const saveTags = true; // 是否保存标签
     const tagAuthor = false; // 是否将作者名加入标签
     const addToFavor = true; // 下载时是否同时加入收藏
-    const enableMainpage = true; // 首页添加按钮，目前实现方式过于丑陋，等学会svg绘图再修改图标
     const searchDirName = "画师"; // 判断是否需要创建文件夹时搜索的范围，仅搜索该文件夹内和最外层
+    const enableMainpage = true; // 首页添加按钮，目前实现方式过于丑陋，等学会svg绘图再修改图标
+    const enableNewIllust = true; //关注用户新作品页面添加下载按钮
     // 设置项结束
 
     //Pixiv页面中的标签和标签翻译
     const TAG_CLASS = "gtm-new-work-tag-event-click";
     const TAG_TRANS_CLASS = "gtm-new-work-translate-tag-event-click";
-    // Pixiv首页图片选择器
-    const MAIN_PAGE_SELECTOR = ".iasfms-2.gGOhDf";
-    // 下载按键位置
-    const BUTTON_POS = ".sc-181ts2x-0.jPZrYy";
-    // 单图
-    const PIC_SRC = ".sc-1qpw8k9-3.ckeRFU";
-    // 多图
-    const PICS_SRC = ".sc-1qpw8k9-3.lmFZOm";
-    const CLICK_POS = ".sc-1mz6e1e-1.kyYawS";
-    // 动图
-    const UGO_SRC = ".tu09d3-1.MNNrM";
-
+    // 页面图片选择器
+    const MAIN_PAGE_SELECTOR = ".iasfms-2.gGOhDf"; // Pixiv首页
+    const NEW_ILLUST_SELECTOR = ".thumbnail-menu"; // 关注用户新作品
+    const BOOKMARK_SELECTOR = ".image-item > .input-container"; // 收藏作品
+    const BOOKMARK_BUTTON_POS = ".column-action-menu > .menu-items"; // 收藏作品页面下载按键位置
+    // 作品详细页面
+    const BUTTON_POS = ".sc-181ts2x-0.jPZrYy"; // 下载按键位置
+    const PIC_SRC = ".sc-1qpw8k9-3.ckeRFU"; // 单图
+    const PICS_SRC = ".sc-1qpw8k9-3.lmFZOm"; // 多图
+    const CLICK_POS = ".sc-1mz6e1e-1.kyYawS"; // 多图时模拟点击位置
+    const UGO_SRC = ".tu09d3-1.MNNrM"; // 动图
     // 处理作者名多余后缀的正则
     let patt = / *[@＠◆■◇☆：:\\\/].*/;
 
@@ -74,11 +74,50 @@
             waitForKeyElements(MAIN_PAGE_SELECTOR, mainPage, false);
             return;
         }
+        else if(enableNewIllust && document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
+            waitForKeyElements(".x7wiBV0", newIllustPage, false);
+        }
+        else if(document.URL.startsWith("https://www.pixiv.net/bookmark.php")){
+            bookmarkPage();
+        }
     }
 
     // 首页
     function mainPage(element){
         element.append(addDownloadButton());
+    }
+
+    // 关注用户新作品页
+    function newIllustPage(){
+        $(NEW_ILLUST_SELECTOR).each((index, elem)=>{
+            elem.append(addDownloadButton());
+        })
+    }
+
+    // 收藏页
+    function bookmarkPage(){
+        let button = document.createElement("li");
+        let span = document.createElement("span");
+        span.className = "_clickable";
+        span.title = "下载选择项到Eagle";
+        span.innerText = "下载";
+        button.appendChild(span);
+        $(BOOKMARK_BUTTON_POS).append(button);
+        button.addEventListener("click",()=>{
+            $(BOOKMARK_SELECTOR).each(async (index, elem)=>{
+                if(elem.firstElementChild.checked){
+                    let [data, author] = await getImagePage(elem.nextElementSibling.href);
+                    let dlFolderId = await getFolderId(author);
+                    if(dlFolderId === undefined){
+                        console.log("创建文件夹失败！尝试直接下载……")
+                    }
+                    else{
+                        data.folderId = dlFolderId;
+                    }
+                    download(data);
+                }
+            })
+        })
     }
 
     function setMode(){
@@ -176,6 +215,7 @@
     }
 
     function download(data){
+        // console.log(data);
         GM_xmlhttpRequest({
             url: EAGLE_IMPORT_API_URL,
             method: "POST",
@@ -398,18 +438,15 @@
 
     function addDownloadButton(){
         let pos = document.createElement("div");
+        pos.style.zIndex = 3;
         let button = document.createElement("button");
         pos.appendChild(button);
-        button.setAttribute("class","dl_to_eagle");
+        button.setAttribute("class","dl_to_eagle iPGEIN");
         button.setAttribute("type", "button");
         button.setAttribute("title", "下载这张图到Eagle");
-        let icon = document.createElement("svg");
-        icon.setAttribute("viewBox", "0 0 32 32");
-        // icon.setAttribute("xmlns","http://www.w3.org/2000/svg")
-        icon.innerHTML = `<line y2="16" x2="32" y1="16" x1="0" stroke-width="1.5" stroke="#000" fill="none"/><line y2="32" x2="16" y1="0" x1="16" stroke-width="1.5" stroke="#000" fill="none"/>`;
-        icon.style["width"] = "32px";
-        icon.style["height"] = "32px";
-        button.appendChild(icon);
+        button.style.backgroundColor = "rgba(0,0,0,.1)";
+        button.style.border = "none";
+        button.innerHTML = '<svg viewBox="0 0 120 120" style="width: 22px;height: 22px;stroke: black;fill: none;stroke-width: 15;"><polyline points="60,102 60,8"></polyline><polyline points="10,55 60,105 110,55"></polyline><polyline style="stroke: white; stroke-width: 10;" points="60,100 60,10"></polyline><polyline style="stroke: white;stroke-width: 10;" points="12,57 60,105 108,57"></polyline></svg>';
         button.addEventListener("click", ()=>{
             getImagePage(pos.parentElement.previousSibling.href).then(async ([data, author])=>{
                 let dlFolderId = await getFolderId(author);
@@ -420,12 +457,13 @@
                     data.folderId = dlFolderId;
                 }
                 download(data);
+                $("svg", button)[0].style.stroke = "gray";
             });
         });
-        button.innerText = "下载";
         return pos;
     }
 
+    // 获取新页面并返回图片信息
     function getImagePage(url){
         return new Promise((resolve, reject)=>{
             let item = {
@@ -449,12 +487,20 @@
                         item.annotation = illustData.description;
                         for(let tag of illustData.tags.tags){
                             item.tags.push(tag.tag);
-                            for(let trans of Object.values(tag.translation)){
-                                item.tags.push(trans);
+                            if(tag.translation){
+                                for(let trans of Object.values(tag.translation)){
+                                    item.tags.push(trans);
+                                }
                             }
-                            console.log(tag);
                         }
                         let author = illustData.userName || illustData.userAccount;
+                        let test = author.match(patt);
+                        if(test && test.length === 1){
+                            author = author.replace(test[0],"");
+                        }
+                        if(tagAuthor){
+                            item.tags.push(author);
+                        }
                         resolve([item,author]);
                     }
                     catch(e){
