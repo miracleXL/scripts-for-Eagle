@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.3.2
+// @version                 0.3.3
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -37,8 +37,7 @@
     // 设置项结束
 
     //Pixiv页面中的标签和标签翻译
-    const TAG_CLASS = "gtm-new-work-tag-event-click";
-    const TAG_TRANS_CLASS = "gtm-new-work-translate-tag-event-click";
+    const TAG_SELECTOR = ".pj1a4x-1.ePBhWV";
     // 页面图片选择器
     const MAIN_PAGE_SELECTOR = ".iasfms-2.gGOhDf"; // Pixiv首页
     const NEW_ILLUST_SELECTOR = ".thumbnail-menu"; // 关注用户新作品
@@ -70,13 +69,13 @@
 
     // 插画页面
     function main(){
-        waitForKeyElements(BUTTON_POS, setMode, false);
+        waitForKeyElements(BUTTON_POS, setMode, true);
         if(enableMainpage && document.URL === "https://www.pixiv.net/"){
             waitForKeyElements(MAIN_PAGE_SELECTOR, mainPage, false);
             return;
         }
         else if(enableNewIllust && document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
-            waitForKeyElements(".x7wiBV0", newIllustPage, false);
+            waitForKeyElements(".x7wiBV0", newIllustPage, true);
         }
         else if(document.URL.startsWith("https://www.pixiv.net/bookmark.php")){
             bookmarkPage();
@@ -328,12 +327,11 @@
         //把pixiv标签和标签翻译添加进eagle标签
         let tags = [];
         if(saveTags){
-            let firstTag = document.getElementsByClassName("nqp4a5-0")[0];
-            if(firstTag !== undefined){
-                tags.push(firstTag.textContent);
-            }
-            document.getElementsByClassName(TAG_CLASS).forEach(item => {tags.push(item.text);});
-            document.getElementsByClassName(TAG_TRANS_CLASS).forEach(item => {tags.push(item.text);});
+            $(TAG_SELECTOR).each((index,elem)=>{
+                $("a", elem).each((i,tag)=>{
+                    tags.push(tag.textContent);
+                })
+            })
         }
         let author = document.getElementsByClassName("sc-10gpz4q-5 bUnVlH")[0].textContent;
         // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
@@ -452,7 +450,7 @@
         button.setAttribute("title", "下载这张图到Eagle");
         button.style.backgroundColor = "rgba(0,0,0,.1)";
         button.style.border = "none";
-        button.innerHTML = '<svg viewBox="0 0 120 120" style="width: 22px;height: 22px;stroke: black;fill: none;stroke-width: 15;"><polyline points="60,102 60,8"></polyline><polyline points="10,55 60,105 110,55"></polyline><polyline style="stroke: white; stroke-width: 10;" points="60,100 60,10"></polyline><polyline style="stroke: white;stroke-width: 10;" points="12,57 60,105 108,57"></polyline></svg>';
+        button.innerHTML = '<svg viewBox="0 0 120 120" style="width: 22px;height: 22px;stroke: white;fill: none;stroke-width: 10;"><polyline style="stroke: black; stroke-width: 15;" points="60,102 60,8"></polyline><polyline style="stroke: black; stroke-width: 15;" points="10,55 60,105 110,55"></polyline><polyline points="60,100 60,10"></polyline><polyline points="12,57 60,105 108,57"></polyline></svg>';
         button.addEventListener("click", ()=>{
             getImagePage(pos.parentElement.previousSibling.href).then(async ([data, author])=>{
                 let dlFolderId = await getFolderId(author);
@@ -517,5 +515,41 @@
         });
     }
 
+    // 侦听URL是否发生变化
+    let _wr = function(type) {
+        var orig = history[type];
+        return function() {
+            var rv = orig.apply(this, arguments);
+           var e = new Event(type);
+            e.arguments = arguments;
+            window.dispatchEvent(e);
+            return rv;
+        };
+     };
+    history.pushState = _wr('pushState');
+    history.replaceState = _wr('replaceState')
+    window.addEventListener('replaceState', function(e) {
+        main();
+    });
+    window.addEventListener('pushState', function(e) {
+        main();
+    });
     main();
 })();
+
+// function waitForKeyElements (
+//     selectorTxt,    /* Required: The jQuery selector string that
+//                         specifies the desired element(s).
+//                     */
+//     actionFunction, /* Required: The code to run when elements are
+//                         found. It is passed a jNode to the matched
+//                         element.
+//                     */
+//     bWaitOnce,      /* Optional: If false, will continue to scan for
+//                         new elements even after the first match is
+//                         found.
+//                     */
+//     iframeSelector  /* Optional: If set, identifies the iframe to
+//                         search.
+//                     */
+// )
