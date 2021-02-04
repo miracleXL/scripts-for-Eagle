@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.3.3
+// @version                 0.3.4
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -32,14 +32,15 @@
     const tagAuthor = false; // 是否将作者名加入标签
     const addToFavor = true; // 下载时是否同时加入收藏
     const searchDirName = "画师"; // 判断是否需要创建文件夹时搜索的范围，仅搜索该文件夹内和最外层
-    const enableMainpage = true; // 首页添加按钮，目前实现方式过于丑陋，等学会svg绘图再修改图标
+    const enableMainpage = true; // 首页添加按钮
+    const enableUserPage = true; // 用户页面
     const enableNewIllust = true; //关注用户新作品页面添加下载按钮
     // 设置项结束
 
     //Pixiv页面中的标签和标签翻译
     const TAG_SELECTOR = ".pj1a4x-1.ePBhWV";
     // 页面图片选择器
-    const MAIN_PAGE_SELECTOR = ".iasfms-2.gGOhDf"; // Pixiv首页
+    const PAGE_SELECTOR = ".iasfms-2.gGOhDf"; // Pixiv首页及用户页
     const NEW_ILLUST_SELECTOR = ".thumbnail-menu"; // 关注用户新作品
     const BOOKMARK_SELECTOR = ".image-item > .input-container"; // 收藏作品
     const BOOKMARK_BUTTON_POS = ".column-action-menu > .menu-items"; // 收藏作品页面下载按键位置
@@ -70,8 +71,8 @@
     // 插画页面
     function main(){
         waitForKeyElements(BUTTON_POS, setMode, true);
-        if(enableMainpage && document.URL === "https://www.pixiv.net/"){
-            waitForKeyElements(MAIN_PAGE_SELECTOR, mainPage, false);
+        if((enableMainpage && document.URL === "https://www.pixiv.net/") || (enableUserPage && document.URL.startsWith("https://www.pixiv.net/users/"))){
+            waitForKeyElements(PAGE_SELECTOR, mainPage, false);
             return;
         }
         else if(enableNewIllust && document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
@@ -79,6 +80,10 @@
         }
         else if(document.URL.startsWith("https://www.pixiv.net/bookmark.php")){
             bookmarkPage();
+        }
+        // 默认处理方式
+        else{
+            waitForKeyElements(PAGE_SELECTOR, main, false);
         }
     }
 
