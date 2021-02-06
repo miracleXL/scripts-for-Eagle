@@ -3,12 +3,12 @@
 // @name:zh                 下载Pixiv图片到Eagle
 // @name:zh-CN              下载Pixiv图片到Eagle
 // @description             Collect pictures in pixiv to eagle.
-// @description:zh          在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。新增首页、关注用户新作品页、收藏页下载按钮。
-// @description:zh-CN       在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。新增首页、关注用户新作品页、收藏页下载按钮。
+// @description:zh          在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮。新增复选框模式显示，若使用中出现异常请先将useCheckbox项改为false
+// @description:zh-CN       在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮。新增复选框模式显示，若使用中出现异常请先将useCheckbox项改为false
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.3.4
+// @version                 0.3.5
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -34,14 +34,17 @@
     const searchDirName = "画师"; // 判断是否需要创建文件夹时搜索的范围，仅搜索该文件夹内和最外层
     const enableMainpage = true; // 首页添加按钮
     const enableUserPage = true; // 用户页面
-    const enableNewIllust = true; //关注用户新作品页面添加下载按钮
+    const enableNewIllust = true; // 关注用户新作品页面添加下载按钮
+    const useCheckbox = true; // 为true时在每一张图上添加复选框代替下载键，此时下载键将移至图片所在区域上方标题处
     // 设置项结束
 
     //Pixiv页面中的标签和标签翻译
     const TAG_SELECTOR = ".pj1a4x-1.ePBhWV";
     // 页面图片选择器
-    const PAGE_SELECTOR = ".iasfms-2.gGOhDf"; // Pixiv首页及用户页
+    const PAGE_SELECTOR = "div[type=illust] > div:first-child"; // Pixiv首页及用户页
+    const BUTTON_SELECTOR = ".sc-7zddlj-1.bfLCvR"; // 使用添加选择框的方式时的下载按钮位置
     const NEW_ILLUST_SELECTOR = ".thumbnail-menu"; // 关注用户新作品
+    const NEW_ILLUST_BUTTON = ".column-menu"; // 新作品页按键位置
     const BOOKMARK_SELECTOR = ".image-item > .input-container"; // 收藏作品
     const BOOKMARK_BUTTON_POS = ".column-action-menu > .menu-items"; // 收藏作品页面下载按键位置
     // 作品详细页面
@@ -68,12 +71,16 @@
     const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
+    let ran = false;
     // 插画页面
     function main(){
         waitForKeyElements(BUTTON_POS, setMode, true);
         if((enableMainpage && document.URL === "https://www.pixiv.net/") || (enableUserPage && document.URL.startsWith("https://www.pixiv.net/users/"))){
-            waitForKeyElements(PAGE_SELECTOR, mainPage, false);
-            return;
+            if(ran) return;
+            waitForKeyElements("section", mainPage, false);
+            waitForKeyElements(PAGE_SELECTOR, (elem)=>{
+                elem.prepend(createCheckbox());
+            }, false);
         }
         else if(enableNewIllust && document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
             waitForKeyElements(".x7wiBV0", newIllustPage, true);
@@ -83,19 +90,103 @@
         }
         // 默认处理方式
         else{
-            waitForKeyElements(PAGE_SELECTOR, main, false);
+            if(ran) return;
+            waitForKeyElements("section", mainPage, false);
+            waitForKeyElements(PAGE_SELECTOR, (elem)=>{
+                elem.prepend(createCheckbox());
+            }, false);
         }
     }
 
     // 首页
     function mainPage(element){
-        element.append(addDownloadButton());
+        if(useCheckbox){
+            let button1 = createMainpageButton("全选");
+            let button2 = createMainpageButton("取消");
+            let button3 = createMainpageButton("下载");
+            button1.addEventListener("click", ()=>{
+                $(".to_eagle", element).each((i,e)=>{
+                    e.checked = true;
+                });
+            });
+            button2.addEventListener("click", ()=>{
+                $(".to_eagle", element).each((i,e)=>{
+                    e.checked = false;
+                });
+            });
+            button3.addEventListener("click", ()=>{
+                $(".to_eagle", element).each(async (i,e)=>{
+                    if(e.checked){
+                        let [data, author] = await getImagePage(e.nextElementSibling.href);
+                        let dlFolderId = await getFolderId(author);
+                        if(dlFolderId === undefined){
+                            console.log("创建文件夹失败！尝试直接下载……")
+                        }
+                        else{
+                            data.folderId = dlFolderId;
+                        }
+                        download(data);
+                    }
+                });
+            });
+            $(BUTTON_SELECTOR, element).append(button1);
+            $(BUTTON_SELECTOR, element).append(button2);
+            $(BUTTON_SELECTOR, element).append(button3);
+        }else{
+            waitForKeyElements(PAGE_SELECTOR,(elem)=>{
+                elem.find(".iasfms-2.gGOhDf").append(addDownloadButton());
+            }, true);
+        }
     }
 
     // 关注用户新作品页
     function newIllustPage(){
+        if(useCheckbox){
+            let pos = document.createElement("ul");
+            pos.className = "menu-items";
+            let button1 = document.createElement("li");
+            button1.innerHTML = '<button style="color: #258fb8;padding: 10px;background: none;border: none;">全选</button>';
+            let button2 = document.createElement("li");
+            button2.innerHTML = '<button style="color: #258fb8;padding: 10px;background: none;border: none;">取消</button>';
+            let button3 = document.createElement("li");
+            button3.innerHTML = '<button style="color: #258fb8;padding: 10px;background: none;border: none;">下载</button>';
+            button1.addEventListener("click", ()=>{
+                $(".to_eagle").each((i,e)=>{
+                    e.checked = true;
+                });
+            });
+            button2.addEventListener("click", ()=>{
+                $(".to_eagle").each((i,e)=>{
+                    e.checked = false;
+                });
+            });
+            button3.addEventListener("click", ()=>{
+                $(".to_eagle").each(async (i,e)=>{
+                    if(e.checked){
+                        let [data, author] = await getImagePage(e.parentElement.parentElement.firstElementChild.href);
+                        let dlFolderId = await getFolderId(author);
+                        if(dlFolderId === undefined){
+                            console.log("创建文件夹失败！尝试直接下载……")
+                        }
+                        else{
+                            data.folderId = dlFolderId;
+                        }
+                        download(data);
+                    }
+                });
+                $("button",button3).style.color = "black";
+            });
+            pos.appendChild(button1);
+            pos.appendChild(button2);
+            pos.appendChild(button3);
+            $(NEW_ILLUST_BUTTON).append(pos);
+        }
         $(NEW_ILLUST_SELECTOR).each((index, elem)=>{
-            elem.append(addDownloadButton());
+            if(useCheckbox){
+                elem.parentElement.append(createCheckbox());
+            }else{
+                elem.append(addDownloadButton());
+            }
         })
     }
 
@@ -142,7 +233,7 @@
     function imagePage(){
         let pos = $(BUTTON_POS);
         if(pos.length === 0) return;
-        let button = createButton("下载");
+        let button = createNormalButton("下载");
         pos[0].appendChild(button);
         button.addEventListener("click", async function(){
             //下载同时自动点赞+收藏
@@ -169,7 +260,7 @@
     function mangaPage(){
         let pos = $(BUTTON_POS);
         if(pos.length === 0) return;
-        let button = createButton("下载");
+        let button = createNormalButton("下载");
         pos[0].appendChild(button);
         //绑定点击按钮时下载事件
         button.addEventListener("click", async () => {
@@ -193,7 +284,7 @@
         });
         function changeButton(){
             $("span",button)[0].innerText = "下载全部";
-            let button2 = createButton("下载选择");
+            let button2 = createNormalButton("下载选择");
             pos[0].appendChild(button2);
             button2.addEventListener("click", async () => {
                 let [data, author] = getSelectData();
@@ -373,9 +464,9 @@
         let [name, annotation, tags, author] = getCommonInfo();
         let data = {"items":[]};
         checkbox.each((index, element)=>{
-            if(element.firstElementChild.checked === true){
+            if(element.checked === true){
                 data.items.push({
-                    "url": element.nextElementSibling.href,
+                    "url": element.parentElement.nextElementSibling.href,
                     "name": name + `_${index}`,
                     "website": document.URL,
                     "annotation": annotation,
@@ -415,7 +506,7 @@
         button.className = "_1vHxmVH _35vRH4a";
     }
 
-    function createButton(text){
+    function createNormalButton(text){
         let button = document.createElement('div');
         button.setAttribute('class', 'sc-181ts2x-01');
         button.setAttribute('style', 'margin-right: 23px;');
@@ -423,16 +514,26 @@
         return button;
     }
 
+    function createMainpageButton(text){
+        let button = document.createElement('button');
+        button.style.border = "none";
+        button.style.background = "none";
+        button.style.marginLeft = "20px";
+        button.style.fontSize = "x-small";
+        button.innerText = text;
+        return button;
+    }
+
     // 创建选择框
     function createCheckbox(){
         let input_container = document.createElement("div");
-        input_container.setAttribute("class","to_eagle");
         let checkbox = document.createElement("input");
+        checkbox.setAttribute("class","to_eagle");
         checkbox.setAttribute("type","checkbox");
         input_container.appendChild(checkbox);
         input_container.style.position = "absolute";
         input_container.style.zIndex = 3;
-        input_container.style.left = "1px";
+        input_container.style.display = "flex";
         input_container.style.backgroundColor = "rgba(0,0,0,.1)";
         input_container.style.padding = "9px";
         return input_container;
@@ -520,7 +621,7 @@
         });
     }
 
-    // 侦听URL是否发生变化
+    // 侦听URL是否发生变化，代码来自 https://blog.csdn.net/liubangbo/article/details/103272393
     let _wr = function(type) {
         var orig = history[type];
         return function() {
