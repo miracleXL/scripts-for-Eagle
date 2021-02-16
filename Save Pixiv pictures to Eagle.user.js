@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.3.5
+// @version                 0.3.6
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -116,7 +116,7 @@
             button3.addEventListener("click", ()=>{
                 $(".to_eagle", element).each(async (i,e)=>{
                     if(e.checked){
-                        let [data, author] = await getImagePage(e.nextElementSibling.href);
+                        let [data, author] = await getImagePage(e.parentElement.nextElementSibling.href);
                         let dlFolderId = await getFolderId(author);
                         if(dlFolderId === undefined){
                             console.log("创建文件夹失败！尝试直接下载……")
