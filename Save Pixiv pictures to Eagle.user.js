@@ -28,6 +28,7 @@
     }
 
     // 设置项
+    const patt = / *[@＠◆■◇☆🌟🔞：:\\\/].*/; // 处理作者名多余后缀的正则
     const saveTags = true; // 是否保存标签
     const tagAuthor = false; // 是否将作者名加入标签
     const addToFavor = true; // 下载时是否同时加入收藏
@@ -54,8 +55,6 @@
     const CLICK_POS1 = ".sc-1mz6e1e-1.kyYawS"; // 多图时侦听点击位置
     const CLICK_POS2 = ".emr523-0.cwSjFV"; // 多图时侦听点击位置
     const UGO_SRC = ".tu09d3-1.MNNrM"; // 动图
-    // 处理作者名多余后缀的正则
-    let patt = / *[@＠◆■◇☆：:\\\/].*/;
 
     const HEADERS = {
         "referer": "https://www.pixiv.net/",
@@ -71,10 +70,10 @@
     const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
+    waitForKeyElements(BUTTON_POS, setMode, false);
     let ran = false;
     // 插画页面
     function main(){
-        waitForKeyElements(BUTTON_POS, setMode, true);
         if((enableMainpage && document.URL === "https://www.pixiv.net/") || (enableUserPage && document.URL.startsWith("https://www.pixiv.net/users/"))){
             if(ran) return;
             waitForKeyElements("section", mainPage, false);
