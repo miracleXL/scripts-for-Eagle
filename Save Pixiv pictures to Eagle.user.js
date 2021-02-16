@@ -428,7 +428,7 @@
                 })
             })
         }
-        let author = document.getElementsByClassName("sc-10gpz4q-5 bUnVlH")[0].textContent;
+        let author = document.getElementsByClassName("sc-10gpz4q-5")[0].textContent;
         // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
         let test = author.match(patt);
         if(test && test.length === 1){
