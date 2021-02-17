@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.3.6
+// @version                 0.3.7
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -28,7 +28,7 @@
     }
 
     // 设置项
-    const patt = / *[@＠◆■◇☆🌟🔞：:\\\/].*/; // 处理作者名多余后缀的正则
+    const patt = / *[@＠◆■◇☆⭐️🌟🔞：:\\\/].*/; // 处理作者名多余后缀的正则
     const saveTags = true; // 是否保存标签
     const tagAuthor = false; // 是否将作者名加入标签
     const addToFavor = true; // 下载时是否同时加入收藏
@@ -239,7 +239,7 @@
             if(addToFavor){
                 try{
                     document.getElementsByClassName("_35vRH4a")[0].click();
-                    document.getElementsByClassName("kgq5hw-0 iPGEIN gtm-main-bookmark")[0].click();
+                    document.getElementsByClassName("gtm-main-bookmark")[0].click();
                 }catch(e){}
             }
             let [data, author] = getImageData();
@@ -267,7 +267,7 @@
             if(addToFavor){
                 try{
                     document.getElementsByClassName("_35vRH4a")[0].click();
-                    document.getElementsByClassName("kgq5hw-0 iPGEIN gtm-main-bookmark")[0].click();
+                    document.getElementsByClassName("gtm-main-bookmark")[0].click();
                 }catch(e){}
             }
             let [data, author] = getImagesData();
@@ -304,6 +304,10 @@
             clickpos[0].addEventListener("click",changeButton)
         }
         clickpos = $(CLICK_POS2);
+        if(clickpos.length !== 0){
+            clickpos[0].addEventListener("click",changeButton)
+        }
+        clickpos = $(".gtm-main-bookmark");
         if(clickpos.length !== 0){
             clickpos[0].addEventListener("click",changeButton)
         }
@@ -409,7 +413,7 @@
 
     function getCommonInfo(){
         //获取标题
-        let name = document.getElementsByClassName("sc-1u8nu73-3 feoVvS")[0];
+        let name = document.getElementsByClassName("sc-1u8nu73-3")[0];
         if(name === undefined){
             name = "";
         }else{
@@ -441,7 +445,7 @@
     }
 
     function getImageData(){
-        let image = document.getElementsByClassName("sc-1qpw8k9-3 ckeRFU")[0];// 单图
+        let image = document.getElementsByClassName("sc-1qpw8k9-3")[0];// 单图
         if(!image){
             console.log("下载失败！");
             return;
