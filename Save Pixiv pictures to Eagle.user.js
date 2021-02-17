@@ -281,7 +281,10 @@
             downloadAll(data);
             changeStyle(button);
         });
+        let added = false;
         function changeButton(){
+            if(added) return;
+            added = true;
             $("span",button)[0].innerText = "下载全部";
             let button2 = createNormalButton("下载选择");
             pos[0].appendChild(button2);
@@ -415,7 +418,7 @@
         //获取标题
         let name = document.getElementsByClassName("sc-1u8nu73-3")[0];
         if(name === undefined){
-            name = "";
+            name = document.title;
         }else{
             name = name.textContent;
         }
