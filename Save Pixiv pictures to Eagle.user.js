@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.3.7
+// @version                 0.4.0
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -33,21 +33,20 @@
     const tagAuthor = false; // 是否将作者名加入标签
     const addToFavor = true; // 下载时是否同时加入收藏
     const searchDirName = "画师"; // 判断是否需要创建文件夹时搜索的范围，仅搜索该文件夹内和最外层
-    const enableMainpage = true; // 首页添加按钮
-    const enableUserPage = true; // 用户页面
     const enableNewIllust = true; // 关注用户新作品页面添加下载按钮
     const useCheckbox = true; // 为true时在每一张图上添加复选框代替下载键，此时下载键将移至图片所在区域上方标题处
     // 设置项结束
 
+    // 夜间模式开关
+    const NIGHT_MODE = ".q9jvw8-5";
+    const NIGHT_MODE_EVENT = ".gtm-darkmode-toggle-on-user-menu-to-dark"
     //Pixiv页面中的标签和标签翻译
     const TAG_SELECTOR = ".pj1a4x-1.ePBhWV";
     // 页面图片选择器
-    const PAGE_SELECTOR = "div[type=illust] > div:first-child"; // Pixiv首页及用户页
+    const PAGE_SELECTOR = "div[type=illust] .rp5asc-0"; // Pixiv首页及用户页
     const BUTTON_SELECTOR = ".sc-7zddlj-1.bfLCvR"; // 使用添加选择框的方式时的下载按钮位置
     const NEW_ILLUST_SELECTOR = ".thumbnail-menu"; // 关注用户新作品
     const NEW_ILLUST_BUTTON = ".column-menu"; // 新作品页按键位置
-    const BOOKMARK_SELECTOR = ".image-item > .input-container"; // 收藏作品
-    const BOOKMARK_BUTTON_POS = ".column-action-menu > .menu-items"; // 收藏作品页面下载按键位置
     // 作品详细页面
     const BUTTON_POS = ".sc-181ts2x-0.jPZrYy"; // 下载按键位置
     const PIC_SRC = ".sc-1qpw8k9-3.ckeRFU"; // 单图
@@ -71,38 +70,27 @@
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
     waitForKeyElements(BUTTON_POS, setMode, false);
-    let ran = false;
-    // 插画页面
+    waitForKeyElements("section", newPageCommon, false);
+    waitForKeyElements(PAGE_SELECTOR, (elem)=>{
+        elem.prepend(createCheckbox());
+    }, false);
+
+    // 分情况处理
     function main(){
-        if((enableMainpage && document.URL === "https://www.pixiv.net/") || (enableUserPage && document.URL.startsWith("https://www.pixiv.net/users/"))){
-            if(ran) return;
-            waitForKeyElements("section", mainPage, false);
-            waitForKeyElements(PAGE_SELECTOR, (elem)=>{
-                elem.prepend(createCheckbox());
-            }, false);
-        }
-        else if(enableNewIllust && document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
+        if(enableNewIllust && document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
             waitForKeyElements(".x7wiBV0", newIllustPage, true);
-        }
-        else if(document.URL.startsWith("https://www.pixiv.net/bookmark.php")){
-            bookmarkPage();
-        }
-        // 默认处理方式
-        else{
-            if(ran) return;
-            waitForKeyElements("section", mainPage, false);
-            waitForKeyElements(PAGE_SELECTOR, (elem)=>{
-                elem.prepend(createCheckbox());
-            }, false);
         }
     }
 
-    // 首页
-    function mainPage(element){
+    // 网站改版后页面通用样式
+    function newPageCommon(element){
         if(useCheckbox){
-            let button1 = createMainpageButton("全选");
-            let button2 = createMainpageButton("取消");
-            let button3 = createMainpageButton("下载");
+            let button1 = createCommonButton("全选");
+            let button2 = createCommonButton("取消");
+            let button3 = createCommonButton("下载");
+            button1.className = "button_to_eagle";
+            button2.className = "button_to_eagle";
+            button3.className = "button_to_eagle";
             button1.addEventListener("click", ()=>{
                 $(".to_eagle", element).each((i,e)=>{
                     e.checked = true;
@@ -186,32 +174,6 @@
             }else{
                 elem.append(addDownloadButton());
             }
-        })
-    }
-
-    // 收藏页
-    function bookmarkPage(){
-        let button = document.createElement("li");
-        let span = document.createElement("span");
-        span.className = "_clickable";
-        span.title = "下载选择项到Eagle";
-        span.innerText = "下载";
-        button.appendChild(span);
-        $(BOOKMARK_BUTTON_POS).append(button);
-        button.addEventListener("click",()=>{
-            $(BOOKMARK_SELECTOR).each(async (index, elem)=>{
-                if(elem.firstElementChild.checked){
-                    let [data, author] = await getImagePage(elem.nextElementSibling.href);
-                    let dlFolderId = await getFolderId(author);
-                    if(dlFolderId === undefined){
-                        console.log("创建文件夹失败！尝试直接下载……")
-                    }
-                    else{
-                        data.folderId = dlFolderId;
-                    }
-                    download(data);
-                }
-            })
         })
     }
 
@@ -520,12 +482,14 @@
         return button;
     }
 
-    function createMainpageButton(text){
+    function createCommonButton(text){
         let button = document.createElement('button');
         button.style.border = "none";
         button.style.background = "none";
         button.style.marginLeft = "20px";
         button.style.fontSize = "x-small";
+        button.style.fontWeight = "bold";
+        button.style.color = "gray";
         button.innerText = text;
         return button;
     }
