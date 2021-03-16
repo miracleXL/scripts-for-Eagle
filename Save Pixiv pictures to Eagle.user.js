@@ -3,12 +3,12 @@
 // @name:zh                 下载Pixiv图片到Eagle
 // @name:zh-CN              下载Pixiv图片到Eagle
 // @description             Collect pictures in pixiv to eagle.
-// @description:zh          在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮。新增复选框模式显示，若使用中出现异常请先将useCheckbox项改为false
-// @description:zh-CN       在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮。新增复选框模式显示，若使用中出现异常请先将useCheckbox项改为false
+// @description:zh          在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。新增以用户id为文件名创建文件夹
+// @description:zh-CN       在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。新增以用户id为文件名创建文件夹
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.4.0
+// @version                 0.4.1
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -28,7 +28,8 @@
     }
 
     // 设置项
-    const patt = / *[@＠◆■◇☆⭐️🌟🔞：:\\\/].*/; // 处理作者名多余后缀的正则
+    const FOLDER_BY_ID = false; // 使用作者id而非用户名创建文件夹，为true时同时会将作者名加入标签
+    const patt = / *[@＠◆■◇☆⭐️🌟🦇💎🔞🍅🌱🐻🍬：:\\\/].*/; // 处理作者名多余后缀的正则
     const saveTags = true; // 是否保存标签
     const tagAuthor = false; // 是否将作者名加入标签
     const addToFavor = true; // 下载时是否同时加入收藏
@@ -37,9 +38,6 @@
     const useCheckbox = true; // 为true时在每一张图上添加复选框代替下载键，此时下载键将移至图片所在区域上方标题处
     // 设置项结束
 
-    // 夜间模式开关
-    const NIGHT_MODE = ".q9jvw8-5";
-    const NIGHT_MODE_EVENT = ".gtm-darkmode-toggle-on-user-menu-to-dark"
     //Pixiv页面中的标签和标签翻译
     const TAG_SELECTOR = ".pj1a4x-1.ePBhWV";
     // 页面图片选择器
@@ -54,6 +52,7 @@
     const CLICK_POS1 = ".sc-1mz6e1e-1.kyYawS"; // 多图时侦听点击位置
     const CLICK_POS2 = ".emr523-0.cwSjFV"; // 多图时侦听点击位置
     const UGO_SRC = ".tu09d3-1.MNNrM"; // 动图
+    const AUTHOR = ".sc-10gpz4q-6.hsjhjk"; // 作者名
 
     const HEADERS = {
         "referer": "https://www.pixiv.net/",
@@ -397,14 +396,22 @@
                 })
             })
         }
-        let author = document.getElementsByClassName("sc-10gpz4q-5")[0].textContent;
-        // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
-        let test = author.match(patt);
-        if(test && test.length === 1){
-            author = author.replace(test[0],"");
+        let author;
+        if(FOLDER_BY_ID){
+            author = $(AUTHOR).attr("href").match(/\d+/)[0];
+            tags.push($(AUTHOR).text());
         }
-        if(tagAuthor){
-            tags.push(author);
+        else{
+            author = $(AUTHOR).text();
+            // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
+            let test = author.match(patt);
+            if(test && test.length === 1){
+                let tmp = author.replace(test[0],"");
+                author = tmp === "" ? author : tmp;
+            }
+            if(tagAuthor){
+                tags.push(author);
+            }
         }
         return [name, annotation, tags, author];
     }
