@@ -49,8 +49,9 @@
     const BUTTON_POS = ".sc-181ts2x-0.jPZrYy"; // 下载按键位置
     const PIC_SRC = ".sc-1qpw8k9-3.ckeRFU"; // 单图
     const PICS_SRC = ".sc-1qpw8k9-3.lmFZOm"; // 多图
-    const CLICK_POS1 = ".sc-1mz6e1e-1.kyYawS"; // 多图时侦听点击位置
-    const CLICK_POS2 = ".emr523-0.cwSjFV"; // 多图时侦听点击位置
+    const CLICK_POS1 = ".sc-1mz6e1e-0"; // 多图时侦听点击位置
+    const CLICK_POS2 = ".emr523-0"; // 多图时侦听点击位置
+    const PIC_END = ".gtm-illust-work-scroll-finish-reading" // 展开多图时结束元素
     const UGO_SRC = ".tu09d3-1.MNNrM"; // 动图
     const AUTHOR = ".sc-10gpz4q-6.hsjhjk"; // 作者名
 
@@ -68,14 +69,37 @@
     const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
-    waitForKeyElements(BUTTON_POS, setMode, false);
-    waitForKeyElements("section", newPageCommon, false);
-    waitForKeyElements(PAGE_SELECTOR, (elem)=>{
-        elem.prepend(createCheckbox());
-    }, false);
+    function main(){
+        waitForKeyElements(BUTTON_POS, setMode, false); // artwork/** 图片详情页面
+        waitForKeyElements("section", newPageCommon, false); // 通用样式
+        waitForKeyElements(PAGE_SELECTOR, (elem)=>{
+            elem.prepend(createCheckbox());
+        }, false); // 为所有图片添加复选框，但是不一定有对应的下载按键
+        
+        // 侦听URL是否发生变化，代码来自 https://blog.csdn.net/liubangbo/article/details/103272393
+        let _wr = function(type) {
+            var orig = history[type];
+            return function() {
+                var rv = orig.apply(this, arguments);
+               var e = new Event(type);
+                e.arguments = arguments;
+                window.dispatchEvent(e);
+                return rv;
+            };
+         };
+        history.pushState = _wr('pushState');
+        history.replaceState = _wr('replaceState')
+        window.addEventListener('replaceState', function(e) {
+            main_old();
+        });
+        window.addEventListener('pushState', function(e) {
+            main_old();
+        });
+        main_old();
+    }
 
     // 分情况处理
-    function main(){
+    function main_old(){
         if(enableNewIllust && document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
             waitForKeyElements(".x7wiBV0", newIllustPage, true);
         }
@@ -176,6 +200,7 @@
         })
     }
 
+    // 图片详情页
     function setMode(){
         if($(UGO_SRC).length !== 0){
             return ugoiraPage();
@@ -261,7 +286,7 @@
                 downloadAll(data);
                 changeStyle(button2);
             });
-            waitForKeyElements(".sc-1mz6e1e-1.QBVJO.gtm-illust-work-scroll-finish-reading", addMangaCheckbox, true);
+            waitForKeyElements(PIC_END, addMangaCheckbox, true);
         }
         let clickpos = $(CLICK_POS1);
         if(clickpos.length !== 0){
@@ -598,25 +623,6 @@
         });
     }
 
-    // 侦听URL是否发生变化，代码来自 https://blog.csdn.net/liubangbo/article/details/103272393
-    let _wr = function(type) {
-        var orig = history[type];
-        return function() {
-            var rv = orig.apply(this, arguments);
-           var e = new Event(type);
-            e.arguments = arguments;
-            window.dispatchEvent(e);
-            return rv;
-        };
-     };
-    history.pushState = _wr('pushState');
-    history.replaceState = _wr('replaceState')
-    window.addEventListener('replaceState', function(e) {
-        main();
-    });
-    window.addEventListener('pushState', function(e) {
-        main();
-    });
     main();
 })();
 
