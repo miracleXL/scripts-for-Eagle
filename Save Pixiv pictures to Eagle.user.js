@@ -53,7 +53,7 @@
     const CLICK_POS2 = ".emr523-0"; // 多图时侦听点击位置
     const PIC_END = ".gtm-illust-work-scroll-finish-reading" // 展开多图时结束元素
     const UGO_SRC = ".tu09d3-1.MNNrM"; // 动图
-    const AUTHOR = ".sc-10gpz4q-6.hsjhjk"; // 作者名
+    const AUTHOR = ".sc-10gpz4q-6.hsjhjk div"; // 作者名
 
     const HEADERS = {
         "referer": "https://www.pixiv.net/",
