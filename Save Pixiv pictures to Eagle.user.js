@@ -3,12 +3,12 @@
 // @name:zh                 下载Pixiv图片到Eagle
 // @name:zh-CN              下载Pixiv图片到Eagle
 // @description             Collect pictures in pixiv to eagle.
-// @description:zh          在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。新增以用户id为文件名创建文件夹
-// @description:zh-CN       在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。新增以用户id为文件名创建文件夹
+// @description:zh          可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释
+// @description:zh-CN       可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.4.1
+// @version                 0.4.2
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -28,12 +28,11 @@
     }
 
     // 设置项
-    const FOLDER_BY_ID = false; // 使用作者id而非用户名创建文件夹，为true时同时会将作者名加入标签
     const patt = / *[@＠◆■◇☆⭐️🌟🦇💎🔞🍅🌱🐻🍬：:\\\/].*/; // 处理作者名多余后缀的正则
     const saveTags = true; // 是否保存标签
     const tagAuthor = false; // 是否将作者名加入标签
     const addToFavor = true; // 下载时是否同时加入收藏
-    const searchDirName = "画师"; // 判断是否需要创建文件夹时搜索的范围，仅搜索该文件夹内和最外层
+    const searchDirName = ""; // 在判断是否需要创建文件夹时，限定搜索的范围，在引号内输入文件夹名，仅搜索该文件夹内和最外层，留空则搜索全部
     const enableNewIllust = true; // 关注用户新作品页面添加下载按钮
     const useCheckbox = true; // 为true时在每一张图上添加复选框代替下载键，此时下载键将移至图片所在区域上方标题处
     // 设置项结束
@@ -47,13 +46,12 @@
     const NEW_ILLUST_BUTTON = ".column-menu"; // 新作品页按键位置
     // 作品详细页面
     const BUTTON_POS = ".sc-181ts2x-0.jPZrYy"; // 下载按键位置
-    const PIC_SRC = ".sc-1qpw8k9-3.ckeRFU"; // 单图
-    const PICS_SRC = ".sc-1qpw8k9-3.lmFZOm"; // 多图
-    const CLICK_POS1 = ".sc-1mz6e1e-0"; // 多图时侦听点击位置
-    const CLICK_POS2 = ".emr523-0"; // 多图时侦听点击位置
+    const PIC_SRC = ".sc-1qpw8k9-3"; // 图片位置
+    const SHOW_ALL_BUTTON = ".emr523-0"; // 多图时显示全部的按键
     const PIC_END = ".gtm-illust-work-scroll-finish-reading" // 展开多图时结束元素
     const UGO_SRC = ".tu09d3-1.MNNrM"; // 动图
     const AUTHOR = ".sc-10gpz4q-6.hsjhjk > div:first-child"; // 作者名
+    const AUTHOR_ID = ".sc-10gpz4q-6.hsjhjk"; // 作者id
 
     const HEADERS = {
         "referer": "https://www.pixiv.net/",
@@ -67,6 +65,7 @@
     const EAGLE_IMPORT_API_URL = `${EAGLE_SERVER_URL}/api/item/addFromURL`;
     const EAGLE_IMPORT_API_URLS = `${EAGLE_SERVER_URL}/api/item/addFromURLs`;
     const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
+    const EAGLE_UPDATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/update`;
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
     function main(){
@@ -127,8 +126,8 @@
             button3.addEventListener("click", ()=>{
                 $(".to_eagle", element).each(async (i,e)=>{
                     if(e.checked){
-                        let [data, author] = await getImagePage(e.parentElement.nextElementSibling.href);
-                        let dlFolderId = await getFolderId(author);
+                        let [data, author, id] = await getImagePage(e.parentElement.nextElementSibling.href);
+                        let dlFolderId = await getFolderId(author, id);
                         if(dlFolderId === undefined){
                             console.log("创建文件夹失败！尝试直接下载……")
                         }
@@ -173,8 +172,8 @@
             button3.addEventListener("click", ()=>{
                 $(".to_eagle").each(async (i,e)=>{
                     if(e.checked){
-                        let [data, author] = await getImagePage(e.parentElement.parentElement.firstElementChild.href);
-                        let dlFolderId = await getFolderId(author);
+                        let [data, author, id] = await getImagePage(e.parentElement.parentElement.firstElementChild.href);
+                        let dlFolderId = await getFolderId(author, id);
                         if(dlFolderId === undefined){
                             console.log("创建文件夹失败！尝试直接下载……")
                         }
@@ -205,13 +204,10 @@
         if($(UGO_SRC).length !== 0){
             return ugoiraPage();
         }
-        if($(PIC_SRC).length !== 0){
-            return imagePage();
-        }
-        if($(PICS_SRC).length !== 0){
+        if($(SHOW_ALL_BUTTON).length !== 0){
             return mangaPage();
         }
-        return ugoiraPage();
+        return imagePage();
     };
 
     // 单图
@@ -228,8 +224,8 @@
                     document.getElementsByClassName("gtm-main-bookmark")[0].click();
                 }catch(e){}
             }
-            let [data, author] = getImageData();
-            let dlFolderId = await getFolderId(author);
+            let [data, author, id] = getImageData();
+            let dlFolderId = await getFolderId(author, id);
             if(dlFolderId === undefined){
                 console.log("创建文件夹失败！尝试直接下载……")
             }
@@ -256,8 +252,8 @@
                     document.getElementsByClassName("gtm-main-bookmark")[0].click();
                 }catch(e){}
             }
-            let [data, author] = getImagesData();
-            let dlFolderId = await getFolderId(author);
+            let [data, author, id] = getImagesData();
+            let dlFolderId = await getFolderId(author, id);
             if(dlFolderId === undefined){
                 console.log("创建文件夹失败！尝试直接下载……");
             }
@@ -275,8 +271,8 @@
             let button2 = createNormalButton("下载选择");
             pos[0].appendChild(button2);
             button2.addEventListener("click", async () => {
-                let [data, author] = getSelectData();
-                let dlFolderId = await getFolderId(author);
+                let [data, author, id] = getSelectData();
+                let dlFolderId = await getFolderId(author, id);
                 if (dlFolderId === undefined) {
                     console.log("创建文件夹失败！尝试直接下载……");
                 }
@@ -288,11 +284,11 @@
             });
             waitForKeyElements(PIC_END, addMangaCheckbox, true);
         }
-        let clickpos = $(CLICK_POS1);
+        let clickpos = $(PIC_SRC);
         if(clickpos.length !== 0){
             clickpos[0].addEventListener("click",changeButton)
         }
-        clickpos = $(CLICK_POS2);
+        clickpos = $(SHOW_ALL_BUTTON);
         if(clickpos.length !== 0){
             clickpos[0].addEventListener("click",changeButton)
         }
@@ -338,22 +334,39 @@
     }
 
     // 获取文件夹id
-    async function getFolderId(author){
+    async function getFolderId(author, pid){
         if(!author) return;
         let folders = await getFolders();
         let dlFolder;
         if(folders){
-            for(let folder of folders){
-                if(folder.name === searchDirName){
-                    for(let f of folder.children){
-                        if(f.name === author) dlFolder = f;
-                    }
-                }
-                if(folder.name === author){
-                    dlFolder = folder;
+            if(searchDirName === ""){
+                dlFolder = searchFolder(folders, author, pid);
+                if(!dlFolder){
+                    dlFolder = await creatFolder(author);
+                    updateFolder({
+                        "newDescription": `pid = ${pid}`
+                    })
                 }
             }
-            if(dlFolder === undefined) dlFolder = await creatFolder(author);
+            else{
+                for(let folder of folders){
+                    if(folder.name === searchDirName){
+                        dlFolder = searchFolder(folder, author, pid);
+                    }
+                    else{
+                        let description = folder.description.match(/(?<=pid ?[:=] ?)\d+/);
+                        if(folder.name === author || (description && description[0] === pid)){
+                            if(!description){
+                                updateFolder({
+                                    "newDescription":`pid = ${pid}\n${folder.description}`
+                                })
+                            }
+                            dlFolder = folder;
+                            break;
+                        }
+                    }
+                }
+            }
         }
         else{
             console.log("获取文件夹信息失败！");
@@ -361,6 +374,26 @@
             return;
         }
         return dlFolder.id;
+    }
+
+    // 搜索同名或注释中包含有pid信息的文件夹
+    function searchFolder(folders, author, pid){
+        for(let folder of folders){
+            let description = folder.description.match(/(?<=pid ?[:=] ?)\d+/);
+            if(folder.name === author || (description && description[0] === pid)){
+                if(!description){
+                    updateFolder({
+                        "folderId":folder.id,
+                        "newDescription":`pid = ${pid}\n${folder.description}`
+                    })
+                }
+                return folder;
+            }
+        }
+        for(let folder of folders){
+            let target = searchFolder(folder.children, author, pid);
+            if(target) return target;
+        }
     }
 
     // 获取文件夹
@@ -400,6 +433,21 @@
         })
     }
 
+    // 更新文件夹信息
+    function updateFolder(data){
+        GM_xmlhttpRequest({
+            url: EAGLE_UPDATE_FOLDER_API_URL,
+            method: "POST",
+            data: JSON.stringify(data),
+            onload: function(response) {
+                if(response.statusText !== "OK"){
+                    console.log("请检查eagle是否打开！");
+                    alert("下载失败！")
+                }
+            }
+        });
+    }
+
     function getCommonInfo(){
         //获取标题
         let name = document.getElementsByClassName("sc-1u8nu73-3")[0];
@@ -421,24 +469,18 @@
                 })
             })
         }
-        let author;
-        if(FOLDER_BY_ID){
-            author = $(AUTHOR).attr("href").match(/\d+/)[0];
-            tags.push($(AUTHOR).text());
+        let author = $(AUTHOR).text();
+        let id = $(AUTHOR_ID).attr("href").match(/\d+/)[0];
+        // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
+        let test = author.match(patt);
+        if(test && test.length === 1){
+            let tmp = author.replace(test[0],"");
+            author = tmp === "" ? author : tmp;
         }
-        else{
-            author = $(AUTHOR).text();
-            // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
-            let test = author.match(patt);
-            if(test && test.length === 1){
-                let tmp = author.replace(test[0],"");
-                author = tmp === "" ? author : tmp;
-            }
-            if(tagAuthor){
-                tags.push(author);
-            }
+        if(tagAuthor){
+            tags.push(author);
         }
-        return [name, annotation, tags, author];
+        return [name, annotation, tags, author, id];
     }
 
     function getImageData(){
@@ -447,7 +489,7 @@
             console.log("下载失败！");
             return;
         }
-        let [name, annotation, tags, author] = getCommonInfo();
+        let [name, annotation, tags, author, id] = getCommonInfo();
         let data = {
             "url": image.href,
             "name": name,
@@ -456,7 +498,7 @@
             "annotation": annotation,
             "headers": HEADERS
         }
-        return [data,author];
+        return [data, author, id];
     };
 
     function getSelectData(){
@@ -606,6 +648,7 @@
                             }
                         }
                         let author = illustData.userName || illustData.userAccount;
+                        let authorId = illustData.authorId;
                         let test = author.match(patt);
                         if(test && test.length === 1){
                             author = author.replace(test[0],"");
@@ -613,7 +656,7 @@
                         if(tagAuthor){
                             item.tags.push(author);
                         }
-                        resolve([item,author]);
+                        resolve([item, author, authorId]);
                     }
                     catch(e){
                         reject(e);
