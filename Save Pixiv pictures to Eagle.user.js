@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.4.2
+// @version                 0.4.3
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -503,7 +503,7 @@
 
     function getSelectData(){
         let checkbox = $(".to_eagle");
-        let [name, annotation, tags, author] = getCommonInfo();
+        let [name, annotation, tags, author, id] = getCommonInfo();
         let data = {"items":[]};
         checkbox.each((index, element)=>{
             if(element.checked === true){
@@ -517,7 +517,7 @@
                 })
             }
         });
-        return [data, author];
+        return [data, author, id];
     };
 
     function getImagesData(){
@@ -528,7 +528,7 @@
             return [null, null];
         }
         let data = {"items":[]};
-        let [name, annotation, tags, author] = getCommonInfo();
+        let [name, annotation, tags, author, id] = getCommonInfo();
         images.each((index, url) => {
             if(url === undefined) return;
             data.items.push({
@@ -541,7 +541,7 @@
             });
             index++;
         });
-        return [data,author];
+        return [data,author, id];
     };
 
     function changeStyle(button){
