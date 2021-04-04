@@ -311,7 +311,7 @@
             data: JSON.stringify(data),
             onload: function(response) {
                 if(response.statusText !== "OK"){
-                    console.log("请检查eagle是否打开！");
+                    console.log(`请检查eagle是否打开！\n${response}`);
                     alert("下载失败！")
                 }
             }
@@ -326,8 +326,8 @@
             data: JSON.stringify(data),
             onload: function(response) {
                 if(response.statusText !== "OK"){
-                    alert("请检查eagle是否打开！");
-                    console.log("下载失败！")
+                    alert("下载失败！");
+                    console.log(`请检查eagle是否打开！\n${response}`);
                 }
             }
         });
@@ -379,7 +379,8 @@
     // 搜索同名或注释中包含有pid信息的文件夹
     function searchFolder(folders, author, pid){
         for(let folder of folders){
-            let description = folder.description.match(/(?<=pid ?[:=] ?)\d+/);
+            let description = folder.description;
+            description = description ? description.match(/(?<=pid ?[:=] ?)\d+/) : "";
             if(folder.name === author || (description && description[0] === pid)){
                 if(!description){
                     updateFolder({
