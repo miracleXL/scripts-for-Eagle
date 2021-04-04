@@ -342,7 +342,7 @@
             if(searchDirName === ""){
                 dlFolder = searchFolder(folders, author, pid);
                 if(!dlFolder){
-                    dlFolder = await creatFolder(author);
+                    dlFolder = await creatFolder(author, pid);
                     updateFolder({
                         "newDescription": `pid = ${pid}`
                     })
@@ -415,7 +415,7 @@
     }
 
     // 创建文件夹
-    function creatFolder(folderName){
+    function creatFolder(folderName, pid){
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
                 url: EAGLE_CREATE_FOLDER_API_URL,
@@ -424,6 +424,10 @@
                 onload: function(response) {
                     var result = JSON.parse(response.response);
                     if (result.status === "success" && result.data && result.data.id) {
+                        updateFolder({
+                            "folderId":result.data.id,
+                            "newDescription":`pid = ${pid}`
+                        });
                         return resolve(result.data);
                     }
                     else{
@@ -442,8 +446,8 @@
             data: JSON.stringify(data),
             onload: function(response) {
                 if(response.statusText !== "OK"){
-                    console.log("请检查eagle是否打开！");
-                    alert("下载失败！")
+                    console.log(`请检查eagle是否打开！${response}`);
+                    alert("下载失败！");
                 }
             }
         });
@@ -487,7 +491,7 @@
     function getImageData(){
         let image = document.getElementsByClassName("sc-1qpw8k9-3")[0];// 单图
         if(!image){
-            console.log("下载失败！");
+            alert("下载失败！");
             return;
         }
         let [name, annotation, tags, author, id] = getCommonInfo();
@@ -525,7 +529,7 @@
         let images = $(PIC_SRC);
         images = images.length === 0 ? $(PICS_SRC) : images;
         if(images.length === 0){
-            console.log("下载失败！");
+            alert("下载失败！");
             return [null, null];
         }
         let data = {"items":[]};
