@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.4.3
+// @version                 0.4.4
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -30,7 +30,7 @@
     // 设置项
     const patt = / *[@＠◆■◇☆⭐️🌟🦇💎🔞🍅🌱🐻🍬：:\\\/].*/; // 处理作者名多余后缀的正则
     const saveTags = true; // 是否保存标签
-    const tagAuthor = false; // 是否将作者名加入标签
+    const tagAuthor = true; // 是否将作者名加入标签
     const addToFavor = true; // 下载时是否同时加入收藏
     const searchDirName = ""; // 在判断是否需要创建文件夹时，限定搜索的范围，在引号内输入文件夹名，仅搜索该文件夹内和最外层，留空则搜索全部
     const enableNewIllust = true; // 关注用户新作品页面添加下载按钮
@@ -183,7 +183,7 @@
                         download(data);
                     }
                 });
-                $("button",button3).style.color = "black";
+                $("button",button3).css("color", "black");
             });
             pos.appendChild(button1);
             pos.appendChild(button2);
@@ -311,7 +311,8 @@
             data: JSON.stringify(data),
             onload: function(response) {
                 if(response.statusText !== "OK"){
-                    console.log(`请检查eagle是否打开！\n${response}`);
+                    console.log(`请检查eagle是否打开！`);
+                    console.log(response);
                     alert("下载失败！")
                 }
             }
@@ -327,7 +328,8 @@
             onload: function(response) {
                 if(response.statusText !== "OK"){
                     alert("下载失败！");
-                    console.log(`请检查eagle是否打开！\n${response}`);
+                    console.log(`请检查eagle是否打开！`);
+                    console.log(response);
                 }
             }
         });
@@ -335,7 +337,10 @@
 
     // 获取文件夹id
     async function getFolderId(author, pid){
-        if(!author) return;
+        if(!pid){
+            console.log("获取用户id失败！");
+        }
+        if(!author && !pid) return;
         let folders = await getFolders();
         let dlFolder;
         if(folders){
@@ -344,6 +349,7 @@
                 if(!dlFolder){
                     dlFolder = await creatFolder(author, pid);
                     updateFolder({
+                        "folderId": dlFolder.id,
                         "newDescription": `pid = ${pid}`
                     })
                 }
@@ -351,14 +357,21 @@
             else{
                 for(let folder of folders){
                     if(folder.name === searchDirName){
-                        dlFolder = searchFolder(folder, author, pid);
+                        dlFolder = searchFolder(folder.children, author, pid);
                     }
                     else{
                         let description = folder.description.match(/(?<=pid ?[:=] ?)\d+/);
                         if(folder.name === author || (description && description[0] === pid)){
                             if(!description){
+                                let d = "";
+                                for(let s of folder.description.split("\n")){
+                                    if(!/^ *pid ?[:=] ?/.test(s)){
+                                        d += "\n" + s;
+                                    }
+                                }
                                 updateFolder({
-                                    "newDescription":`pid = ${pid}\n${folder.description}`
+                                    "folderId": folder.id,
+                                    "newDescription":`pid = ${pid}${d}`
                                 })
                             }
                             dlFolder = folder;
@@ -383,9 +396,15 @@
             description = description ? description.match(/(?<=pid ?[:=] ?)\d+/) : "";
             if(folder.name === author || (description && description[0] === pid)){
                 if(!description){
+                    let d = "";
+                    for(let s of folder.description.split("\n")){
+                        if(!/^ *pid ?[:=] ?/.test(s)){
+                            d += "\n" + s;
+                        }
+                    }
                     updateFolder({
-                        "folderId":folder.id,
-                        "newDescription":`pid = ${pid}\n${folder.description}`
+                        "folderId": folder.id,
+                        "newDescription":`pid = ${pid}${d}`
                     })
                 }
                 return folder;
@@ -446,7 +465,9 @@
             data: JSON.stringify(data),
             onload: function(response) {
                 if(response.statusText !== "OK"){
-                    console.log(`请检查eagle是否打开！${response}`);
+                    console.log(`请检查eagle是否打开！`);
+                    console.log(response);
+                    console.log(data);
                     alert("下载失败！");
                 }
             }
@@ -607,8 +628,8 @@
         button.style.border = "none";
         button.innerHTML = '<svg viewBox="0 0 120 120" style="width: 22px;height: 22px;stroke: white;fill: none;stroke-width: 10;"><polyline style="stroke: black; stroke-width: 15;" points="60,102 60,8"></polyline><polyline style="stroke: black; stroke-width: 15;" points="10,55 60,105 110,55"></polyline><polyline points="60,100 60,10"></polyline><polyline points="12,57 60,105 108,57"></polyline></svg>';
         button.addEventListener("click", ()=>{
-            getImagePage(pos.parentElement.previousSibling.href).then(async ([data, author])=>{
-                let dlFolderId = await getFolderId(author);
+            getImagePage(pos.parentElement.previousSibling.href).then(async ([data, author, pid])=>{
+                let dlFolderId = await getFolderId(author, pid);
                 if(dlFolderId === undefined){
                     console.log("创建文件夹失败！尝试直接下载……")
                 }
@@ -653,13 +674,17 @@
                             }
                         }
                         let author = illustData.userName || illustData.userAccount;
-                        let authorId = illustData.authorId;
+                        let authorId = illustData.userId;
                         let test = author.match(patt);
                         if(test && test.length === 1){
                             author = author.replace(test[0],"");
                         }
                         if(tagAuthor){
                             item.tags.push(author);
+                        }
+                        if(!authorId){
+                            console.log("获取用户id失败！")
+                            console.log(illustData);
                         }
                         resolve([item, author, authorId]);
                     }
