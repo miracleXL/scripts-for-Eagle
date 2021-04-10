@@ -3,8 +3,8 @@
 // @name:zh                 下载Pixiv图片到Eagle
 // @name:zh-CN              下载Pixiv图片到Eagle
 // @description             Collect pictures in pixiv to eagle.
-// @description:zh          可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释
-// @description:zh-CN       可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释
+// @description:zh          可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尝试避免添加进同名不同id文件夹中，尚未经过足够测试，若有问题望及时反馈
+// @description:zh-CN       可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尝试避免添加进同名不同id文件夹中，尚未经过足够测试，若有问题望及时反馈
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
@@ -361,8 +361,13 @@
                     }
                     else{
                         let description = folder.description.match(/(?<=pid ?[:=] ?)\d+/);
-                        if(folder.name === author || (description && description[0] === pid)){
-                            if(!description){
+                        if((description && description[0] === pid) || folder.name === author){
+                            if(description){
+                                if(description[0] !== pid){
+                                    continue;
+                                }
+                            }
+                            else{
                                 let d = "";
                                 for(let s of folder.description.split("\n")){
                                     if(!/^ *pid ?[:=] ?/.test(s)){
@@ -394,8 +399,13 @@
         for(let folder of folders){
             let description = folder.description;
             description = description ? description.match(/(?<=pid ?[:=] ?)\d+/) : "";
-            if(folder.name === author || (description && description[0] === pid)){
-                if(!description){
+            if((description && description[0] === pid) || folder.name === author){
+                if(description){
+                    if(description[0] !== pid){
+                        continue;
+                    }
+                }
+                else{
                     let d = "";
                     for(let s of folder.description.split("\n")){
                         if(!/^ *pid ?[:=] ?/.test(s)){
