@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.4.4
+// @version                 0.4.5
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
