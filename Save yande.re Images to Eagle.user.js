@@ -9,7 +9,7 @@
 // @namespace           https://github.com/miracleXL
 // @homepageURL         https://github.com/miracleXL/scripts-for-Eagle
 // @icon                https://yande.re/favicon.ico
-// @version             0.1.1
+// @version             0.1.2
 
 // @author              miracleXL
 // @match               yande.re/post/show/*
@@ -100,13 +100,13 @@
         };
         if(saveTags){
             for(let tag of document.getElementsByClassName("tag-type-artist")){
-                data.tags.push(tag.children[1].textContent);
+                data.tags.push(tag.children[3].textContent);
             }
             for(let tag of document.getElementsByClassName("tag-type-copyright")){
-                data.tags.push(tag.children[1].textContent);
+                data.tags.push(tag.children[3].textContent);
             }
             for(let tag of document.getElementsByClassName("tag-type-general")){
-                data.tags.push(tag.children[1].textContent);
+                data.tags.push(tag.children[3].textContent);
             };
         }
         return [data,poolName];
