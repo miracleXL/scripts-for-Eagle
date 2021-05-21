@@ -83,13 +83,18 @@
                 poolName = pool.children[0].children[0].children[2].textContent + pool.children[0].children[0].children[1].textContent;
             }
             catch(e){
-                console.log("未知错误！");
-                console.log(e);
+                console.log("不存在pool");
             }
         }
         let url = document.getElementsByClassName("original-file-unchanged")[0];
+        if(url){
+            url = url.href;
+        }
+        else{
+            url = document.getElementById("highres").href;
+        }
         let data = {
-            "url": url.href,
+            "url": url,
             "name": document.title,
             "website": document.URL,
             "tags": [],
