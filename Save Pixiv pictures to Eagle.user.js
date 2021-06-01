@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.4.5
+// @version                 0.4.6
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -18,6 +18,8 @@
 // @require                 https://code.jquery.com/jquery-3.5.1.min.js
 // @require                 https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
 // ==/UserScript==
+
+// 注意！因收藏页的复选框影响了原网页正常功能，现已将下载按键合并入“管理收藏”的功能中！
 
 (function(){
     'use strict';
@@ -44,6 +46,13 @@
     const BUTTON_SELECTOR = ".sc-7zddlj-1.bfLCvR"; // 使用添加选择框的方式时的下载按钮位置
     const NEW_ILLUST_SELECTOR = ".thumbnail-menu"; // 关注用户新作品
     const NEW_ILLUST_BUTTON = ".column-menu"; // 新作品页按键位置
+    // 收藏页
+    const BOOKMARKS_BUTTON = "div.sc-1u8zqt7-0.hiKlBL.sc-1dg0za1-1.sc-1dg0za1-2"; // 管理收藏按键
+    const BDL_BUTTON_POS = "div.sc-13ywrd6-4.cngkan"; // 管理收藏中下载按键位置
+    const OVER_BUTTON = "div.sc-1ij5ui8-0.cBRwmk"; // 管理收藏结束按键
+    const BOOKMARKS_SELECT = "div[type=illust]"
+    const SELECT_URL = "span:first";
+    const SELECT_CHECK = "input.sc-8ggyxi-4";
     // 作品详细页面
     const BUTTON_POS = ".sc-181ts2x-0.jPZrYy"; // 下载按键位置
     const PIC_SRC = ".sc-1qpw8k9-3"; // 图片位置
@@ -69,6 +78,9 @@
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
     function main(){
+        if(router()){
+            return;
+        }
         waitForKeyElements(BUTTON_POS, setMode, false); // artwork/** 图片详情页面
         waitForKeyElements("section", newPageCommon, false); // 通用样式
         waitForKeyElements(PAGE_SELECTOR, (elem)=>{
@@ -89,19 +101,24 @@
         history.pushState = _wr('pushState');
         history.replaceState = _wr('replaceState')
         window.addEventListener('replaceState', function(e) {
-            main_old();
+            router();
         });
         window.addEventListener('pushState', function(e) {
-            main_old();
+            router();
         });
-        main_old();
     }
 
     // 分情况处理
-    function main_old(){
+    function router(){
         if(enableNewIllust && document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
             waitForKeyElements(".x7wiBV0", newIllustPage, true);
+            return false;
         }
+        else if(document.URL.search("bookmarks") !== -1){
+            waitForKeyElements(BOOKMARKS_BUTTON, bookmarksPage, true);
+            return true;
+        }
+        return false;
     }
 
     // 网站改版后页面通用样式
@@ -124,17 +141,9 @@
                 });
             });
             button3.addEventListener("click", ()=>{
-                $(".to_eagle", element).each(async (i,e)=>{
+                $(".to_eagle", element).each((i,e)=>{
                     if(e.checked){
-                        let [data, author, id] = await getImagePage(e.parentElement.nextElementSibling.href);
-                        let dlFolderId = await getFolderId(author, id);
-                        if(dlFolderId === undefined){
-                            console.log("创建文件夹失败！尝试直接下载……")
-                        }
-                        else{
-                            data.folderId = dlFolderId;
-                        }
-                        download(data);
+                        downloadNewPage(e.parentElement.nextElementSibling.href);
                     }
                 });
             });
@@ -146,6 +155,14 @@
                 elem.find(".iasfms-2.gGOhDf").append(addDownloadButton());
             }, true);
         }
+    }
+
+    // 新收藏页面
+    function bookmarksPage(element){
+        $(".sc-1dg0za1-0", element).text("下载/管理收藏")
+        element.click(()=>{
+            setTimeout(bookmarkAppendButton, 10);
+        })
     }
 
     // 关注用户新作品页
@@ -172,15 +189,7 @@
             button3.addEventListener("click", ()=>{
                 $(".to_eagle").each(async (i,e)=>{
                     if(e.checked){
-                        let [data, author, id] = await getImagePage(e.parentElement.parentElement.firstElementChild.href);
-                        let dlFolderId = await getFolderId(author, id);
-                        if(dlFolderId === undefined){
-                            console.log("创建文件夹失败！尝试直接下载……")
-                        }
-                        else{
-                            data.folderId = dlFolderId;
-                        }
-                        download(data);
+                        downloadNewPage(e.parentElement.parentElement.firstElementChild.href);
                     }
                 });
                 $("button",button3).css("color", "black");
@@ -704,6 +713,39 @@
                 }
             });
         });
+    }
+
+    function bookmarkAppendButton(){
+        let button = document.createElement("div");
+        button.className = "sc-1ij5ui8-0 cBRwmk sc-13ywrd6-7 jDGNKo";
+        button.setAttribute("aria-disabled", "false");
+        button.setAttribute("role", "button");
+        button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 gDhCqM"><div class="sc-4a5gah-1 bxlGvy">下载</div></div>';
+        button.addEventListener("click", ()=>{
+            $(BOOKMARKS_SELECT).each((index, element)=>{
+                if($(SELECT_CHECK, element)[0].checked){
+                    downloadNewPage("https://www.pixiv.net" + $(SELECT_URL, element).attr("to"));
+                }
+            })
+        });
+        $(BDL_BUTTON_POS).append(button);
+        $("div[type=illust] .rp5asc-0:first").click();
+        $("div[type=illust] .rp5asc-0:first").click();
+        $(OVER_BUTTON).click(()=>{
+            waitForKeyElements(BOOKMARKS_BUTTON, bookmarksPage, true);
+        });
+    }
+
+    async function downloadNewPage(url){
+        let [data, author, id] = await getImagePage(url);
+        let dlFolderId = await getFolderId(author, id);
+        if(dlFolderId === undefined){
+            console.log("创建文件夹失败！尝试直接下载……")
+        }
+        else{
+            data.folderId = dlFolderId;
+        }
+        download(data);
     }
 
     main();
