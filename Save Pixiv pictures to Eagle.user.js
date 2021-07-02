@@ -3,12 +3,12 @@
 // @name:zh                 下载Pixiv图片到Eagle
 // @name:zh-CN              下载Pixiv图片到Eagle
 // @description             Collect pictures in pixiv to eagle.
-// @description:zh          可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尝试避免添加进同名不同id文件夹中，尚未经过足够测试，若有问题望及时反馈
-// @description:zh-CN       可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尝试避免添加进同名不同id文件夹中，尚未经过足够测试，若有问题望及时反馈
+// @description:zh-CN       可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
+// @description:zh          可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.4.6
+// @version                 0.4.7
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -20,6 +20,8 @@
 // ==/UserScript==
 
 // 注意！因收藏页的复选框影响了原网页正常功能，现已将下载按键合并入“管理收藏”的功能中！
+// 似乎已经无影响了，小改动修复从收藏页跳转出去脚本不会执行的问题
+// pixiv的网站前端仍在频繁更新中，脚本随时可能失效
 
 (function(){
     'use strict';
@@ -86,26 +88,6 @@
         waitForKeyElements(PAGE_SELECTOR, (elem)=>{
             elem.prepend(createCheckbox());
         }, false); // 为所有图片添加复选框，但是不一定有对应的下载按键
-        
-        // 侦听URL是否发生变化，代码来自 https://blog.csdn.net/liubangbo/article/details/103272393
-        let _wr = function(type) {
-            var orig = history[type];
-            return function() {
-                var rv = orig.apply(this, arguments);
-               var e = new Event(type);
-                e.arguments = arguments;
-                window.dispatchEvent(e);
-                return rv;
-            };
-         };
-        history.pushState = _wr('pushState');
-        history.replaceState = _wr('replaceState')
-        window.addEventListener('replaceState', function(e) {
-            router();
-        });
-        window.addEventListener('pushState', function(e) {
-            router();
-        });
     }
 
     // 分情况处理
@@ -625,6 +607,7 @@
         input_container.style.display = "flex";
         input_container.style.backgroundColor = "rgba(0,0,0,.1)";
         input_container.style.padding = "9px";
+        // input_container.className = "cb_div";
         return input_container;
     };
 
@@ -720,7 +703,7 @@
         button.className = "sc-1ij5ui8-0 cBRwmk sc-13ywrd6-7 jDGNKo";
         button.setAttribute("aria-disabled", "false");
         button.setAttribute("role", "button");
-        button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 gDhCqM"><div class="sc-4a5gah-1 bxlGvy">下载</div></div>';
+        button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 fRfnFc"><div class="sc-4a5gah-1 bxlGvy">下载</div></div>';
         button.addEventListener("click", ()=>{
             $(BOOKMARKS_SELECT).each((index, element)=>{
                 if($(SELECT_CHECK, element)[0].checked){
@@ -747,6 +730,27 @@
         }
         download(data);
     }
+
+    
+    // 侦听URL是否发生变化，代码来自 https://blog.csdn.net/liubangbo/article/details/103272393
+    let _wr = function(type) {
+        var orig = history[type];
+        return function() {
+            var rv = orig.apply(this, arguments);
+            var e = new Event(type);
+            e.arguments = arguments;
+            window.dispatchEvent(e);
+            return rv;
+        };
+        };
+    history.pushState = _wr('pushState');
+    history.replaceState = _wr('replaceState')
+    window.addEventListener('replaceState', function(e) {
+        main();
+    });
+    window.addEventListener('pushState', function(e) {
+        main();
+    });
 
     main();
 })();
