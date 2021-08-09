@@ -3,12 +3,12 @@
 // @name:zh                 下载Pixiv图片到Eagle
 // @name:zh-CN              下载Pixiv图片到Eagle
 // @description             Collect pictures in pixiv to eagle.
-// @description:zh-CN       可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
-// @description:zh          可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
+// @description:zh-CN       可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、排行榜、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
+// @description:zh          可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、排行榜、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.4.7
+// @version                 0.5.0
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -19,9 +19,83 @@
 // @require                 https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
 // ==/UserScript==
 
+// 本次更新内容：新增排行榜下载按键，在最新版eagle中可创建指定位置的子文件夹，修复低版本eagle会报错的问题
+
 // 注意！因收藏页的复选框影响了原网页正常功能，现已将下载按键合并入“管理收藏”的功能中！
 // 似乎已经无影响了，小改动修复从收藏页跳转出去脚本不会执行的问题
 // pixiv的网站前端仍在频繁更新中，脚本随时可能失效
+
+// 设置项
+const patt = / *[@＠◆■◇☆⭐️🌟🦇💎🔞🍅🌱🐻🍬：:\\\/].*/; // 处理作者名多余后缀的正则
+const saveTags = true; // 是否保存标签
+const tagAuthor = true; // 是否将作者名加入标签
+const addToFavor = true; // 下载时是否同时加入收藏
+const searchDirName = ""; // 在判断是否需要创建文件夹时，限定搜索和新建子文件夹的位置，在引号内输入文件夹名，该文件夹应当不存在父文件夹。留空则搜索全部
+let   searchDirId = ""; // 一般无需填写，上一行所指定文件夹的id（eagle中选中文件夹右键复制链接，获得如‘eagle://folder/K4130PELEY5W9’字符串，文件夹id就是其中K4130PELEY5W9部分）。填写会使上一行设置失效，可用来设置为新建文件夹创建到某个子文件夹中。
+const enableNewIllust = true; // 关注用户新作品页面添加下载按钮
+const useCheckbox = true; // 为true时在每一张图上添加复选框代替下载键，此时下载键将移至图片所在区域上方标题处
+// 设置项结束
+
+// Eagle支持不同功能的版本号
+const edit_folder_info = 20210401; // 支持修改文件夹信息的版本build号
+const create_child_folder = 20210806; // 支持创建子文件夹的版本build号
+
+//Pixiv页面中的标签和标签翻译
+const TAG_SELECTOR = ".pj1a4x-1.ePBhWV";
+// 页面图片选择器
+const PAGE_SELECTOR = "div[type=illust] .rp5asc-0"; // Pixiv首页及用户页
+const BUTTON_SELECTOR = ".sc-7zddlj-1.bfLCvR"; // 使用添加选择框的方式时的下载按钮位置
+const NEW_ILLUST_SELECTOR = ".thumbnail-menu"; // 关注用户新作品
+const NEW_ILLUST_BUTTON = ".column-menu"; // 新作品页按键位置
+// 收藏页
+const BOOKMARKS_BUTTON = "div.sc-1u8zqt7-0.hiKlBL.sc-1dg0za1-1.sc-1dg0za1-2"; // 管理收藏按键
+const BDL_BUTTON_POS = "div.sc-13ywrd6-4.cngkan"; // 管理收藏中下载按键位置
+const OVER_BUTTON = "div.sc-1ij5ui8-0.cBRwmk"; // 管理收藏结束按键
+const BOOKMARKS_SELECT = "div[type=illust]"
+const SELECT_URL = "span:first";
+const SELECT_CHECK = "input.sc-8ggyxi-4";
+// 作品详细页面
+const BUTTON_POS = ".sc-181ts2x-0.jPZrYy"; // 下载按键位置
+const PIC_SRC = ".sc-1qpw8k9-3"; // 图片位置
+const SHOW_ALL_BUTTON = ".emr523-0"; // 多图时显示全部的按键
+const PIC_END = ".gtm-illust-work-scroll-finish-reading" // 展开多图时结束元素
+const UGO_SRC = ".tu09d3-1.MNNrM"; // 动图
+const AUTHOR = ".sc-10gpz4q-6.hsjhjk > div:first-child"; // 作者名
+const AUTHOR_ID = ".sc-10gpz4q-6.hsjhjk"; // 作者id
+
+const HEADERS = {
+    "referer": "https://www.pixiv.net/",
+    "sec-fetch-dest": "image",
+    "sec-fetch-mode": "no-cors",
+    "sec-fetch-site": "cross-site",
+};
+
+// Eagle API 服务器位置
+const EAGLE_SERVER_URL = "http://localhost:41595";
+const EAGLE_APP_INFO_URL = `${EAGLE_SERVER_URL}/api/application/info`;
+const EAGLE_IMPORT_API_URL = `${EAGLE_SERVER_URL}/api/item/addFromURL`;
+const EAGLE_IMPORT_API_URLS = `${EAGLE_SERVER_URL}/api/item/addFromURLs`;
+const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
+const EAGLE_UPDATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/update`;
+const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
+
+// 全局变量
+var build_ver = "";
+GM_xmlhttpRequest({
+    url: EAGLE_APP_INFO_URL,
+    method: "GET",
+    onload: function(response) {
+        if(response.statusText !== "OK"){
+            console.log(`请检查eagle是否打开！`);
+            console.log(response);
+            alert("下载失败！")
+        }
+        else{
+            build_ver = JSON.parse(response.response).data.buildVersion;
+        }
+    }
+});
+
 
 (function(){
     'use strict';
@@ -31,74 +105,68 @@
         return;
     }
 
-    // 设置项
-    const patt = / *[@＠◆■◇☆⭐️🌟🦇💎🔞🍅🌱🐻🍬：:\\\/].*/; // 处理作者名多余后缀的正则
-    const saveTags = true; // 是否保存标签
-    const tagAuthor = true; // 是否将作者名加入标签
-    const addToFavor = true; // 下载时是否同时加入收藏
-    const searchDirName = ""; // 在判断是否需要创建文件夹时，限定搜索的范围，在引号内输入文件夹名，仅搜索该文件夹内和最外层，留空则搜索全部
-    const enableNewIllust = true; // 关注用户新作品页面添加下载按钮
-    const useCheckbox = true; // 为true时在每一张图上添加复选框代替下载键，此时下载键将移至图片所在区域上方标题处
-    // 设置项结束
+    // 侦听URL是否发生变化，代码来自 https://blog.csdn.net/liubangbo/article/details/103272393
+    let _wr = function(type) {
+        var orig = history[type];
+        return function() {
+            var rv = orig.apply(this, arguments);
+            var e = new Event(type);
+            e.arguments = arguments;
+            window.dispatchEvent(e);
+            return rv;
+        };
+        };
+    history.pushState = _wr('pushState');
+    history.replaceState = _wr('replaceState')
+    window.addEventListener('replaceState', function(e) {
+        main();
+    });
+    window.addEventListener('pushState', function(e) {
+        main();
+    });
 
-    //Pixiv页面中的标签和标签翻译
-    const TAG_SELECTOR = ".pj1a4x-1.ePBhWV";
-    // 页面图片选择器
-    const PAGE_SELECTOR = "div[type=illust] .rp5asc-0"; // Pixiv首页及用户页
-    const BUTTON_SELECTOR = ".sc-7zddlj-1.bfLCvR"; // 使用添加选择框的方式时的下载按钮位置
-    const NEW_ILLUST_SELECTOR = ".thumbnail-menu"; // 关注用户新作品
-    const NEW_ILLUST_BUTTON = ".column-menu"; // 新作品页按键位置
-    // 收藏页
-    const BOOKMARKS_BUTTON = "div.sc-1u8zqt7-0.hiKlBL.sc-1dg0za1-1.sc-1dg0za1-2"; // 管理收藏按键
-    const BDL_BUTTON_POS = "div.sc-13ywrd6-4.cngkan"; // 管理收藏中下载按键位置
-    const OVER_BUTTON = "div.sc-1ij5ui8-0.cBRwmk"; // 管理收藏结束按键
-    const BOOKMARKS_SELECT = "div[type=illust]"
-    const SELECT_URL = "span:first";
-    const SELECT_CHECK = "input.sc-8ggyxi-4";
-    // 作品详细页面
-    const BUTTON_POS = ".sc-181ts2x-0.jPZrYy"; // 下载按键位置
-    const PIC_SRC = ".sc-1qpw8k9-3"; // 图片位置
-    const SHOW_ALL_BUTTON = ".emr523-0"; // 多图时显示全部的按键
-    const PIC_END = ".gtm-illust-work-scroll-finish-reading" // 展开多图时结束元素
-    const UGO_SRC = ".tu09d3-1.MNNrM"; // 动图
-    const AUTHOR = ".sc-10gpz4q-6.hsjhjk > div:first-child"; // 作者名
-    const AUTHOR_ID = ".sc-10gpz4q-6.hsjhjk"; // 作者id
-
-    const HEADERS = {
-        "referer": "https://www.pixiv.net/",
-        "sec-fetch-dest": "image",
-        "sec-fetch-mode": "no-cors",
-        "sec-fetch-site": "cross-site",
-    };
-
-    // Eagle API 服务器位置
-    const EAGLE_SERVER_URL = "http://localhost:41595";
-    const EAGLE_IMPORT_API_URL = `${EAGLE_SERVER_URL}/api/item/addFromURL`;
-    const EAGLE_IMPORT_API_URLS = `${EAGLE_SERVER_URL}/api/item/addFromURLs`;
-    const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
-    const EAGLE_UPDATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/update`;
-    const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
+    main();
 
     function main(){
+        // 处理还未完成改版的旧页面和一些特殊情况
         if(router()){
             return;
         }
+        // 新版页面
         waitForKeyElements(BUTTON_POS, setMode, false); // artwork/** 图片详情页面
         waitForKeyElements("section", newPageCommon, false); // 通用样式
-        waitForKeyElements(PAGE_SELECTOR, (elem)=>{
-            elem.prepend(createCheckbox());
-        }, false); // 为所有图片添加复选框，但是不一定有对应的下载按键
+        if(useCheckbox){
+            // 为所有图片添加复选框，但是不一定有对应的下载按键
+            waitForKeyElements(PAGE_SELECTOR, (elem)=>{
+                elem.prepend(createCheckbox());
+            }, false); 
+        }
     }
 
     // 分情况处理
     function router(){
+        // 关注用户新作品
         if(enableNewIllust && document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
             waitForKeyElements(".x7wiBV0", newIllustPage, true);
             return false;
         }
-        else if(document.URL.search("bookmarks") !== -1){
+        else if(document.URL.search("bookmarks") !== -1){ // 收藏页面
             waitForKeyElements(BOOKMARKS_BUTTON, bookmarksPage, true);
             return true;
+        }
+        else if(document.URL.startsWith("https://www.pixiv.net/ranking.php")){
+            if(useCheckbox){
+                waitForKeyElements(".ranking-image-item", (element)=>{
+                    element.before(createCheckbox());
+                }, false);
+                rankingPage();
+            }
+            else{
+                waitForKeyElements(NEW_ILLUST_SELECTOR, (element)=>{
+                    element.append(addDownloadButton());
+                }, true);
+            }
+            return false;
         }
         return false;
     }
@@ -126,8 +194,10 @@
                 $(".to_eagle", element).each((i,e)=>{
                     if(e.checked){
                         downloadNewPage(e.parentElement.nextElementSibling.href);
+                        e.checked = false;
                     }
                 });
+                button3.style.color = "rgb(0 150 250 / 70%)";
             });
             $(BUTTON_SELECTOR, element).append(button1);
             $(BUTTON_SELECTOR, element).append(button2);
@@ -142,6 +212,26 @@
     // 新收藏页面
     function bookmarksPage(element){
         $(".sc-1dg0za1-0", element).text("下载/管理收藏")
+        function bookmarkAppendButton(){
+            let button = document.createElement("div");
+            button.className = "sc-1ij5ui8-0 cBRwmk sc-13ywrd6-7 jDGNKo";
+            button.setAttribute("aria-disabled", "false");
+            button.setAttribute("role", "button");
+            button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 fRfnFc"><div class="sc-4a5gah-1 bxlGvy">下载</div></div>';
+            button.addEventListener("click", ()=>{
+                $(BOOKMARKS_SELECT).each((index, element)=>{
+                    if($(SELECT_CHECK, element)[0].checked){
+                        downloadNewPage("https://www.pixiv.net" + $(SELECT_URL, element).attr("to"));
+                    }
+                })
+            });
+            $(BDL_BUTTON_POS).append(button);
+            $("div[type=illust] .rp5asc-0:first").click();
+            $("div[type=illust] .rp5asc-0:first").click();
+            $(OVER_BUTTON).click(()=>{
+                waitForKeyElements(BOOKMARKS_BUTTON, bookmarksPage, true);
+            });
+        }
         element.click(()=>{
             setTimeout(bookmarkAppendButton, 10);
         })
@@ -190,8 +280,160 @@
         })
     }
 
+    // 排行榜
+    function rankingPage(){
+        if(document.URL.search("content=ugoira") !== -1){
+            return;
+        }
+        // 部分代码和关注用户新作品页相同
+        let pos = document.createElement("ul");
+        pos.className = "menu-items";
+        let button1 = document.createElement("li");
+        button1.innerHTML = '<button style="cursor: pointer;color: #258fb8;padding: 10px;background: none;border: none;">全选</button>';
+        let button2 = document.createElement("li");
+        button2.innerHTML = '<button style="cursor: pointer;color: #258fb8;padding: 10px;background: none;border: none;">取消</button>';
+        let button3 = document.createElement("li");
+        button3.innerHTML = '<button style="cursor: pointer;color: #258fb8;padding: 10px;background: none;border: none;">下载</button>';
+        button1.addEventListener("click", ()=>{
+            $(".to_eagle").each((i,e)=>{
+                e.checked = true;
+            });
+        });
+        button2.addEventListener("click", ()=>{
+            $(".to_eagle").each((i,e)=>{
+                e.checked = false;
+            });
+        });
+        button3.addEventListener("click", ()=>{
+            $(".to_eagle").each(async (i,e)=>{
+                if(e.checked){
+                    downloadNewPage(e.parentElement.nextElementSibling.firstElementChild.href);
+                    e.checked = false;
+                }
+            });
+            $("button",button3).css("color", "black");
+        });
+        pos.appendChild(button1);
+        pos.appendChild(button2);
+        pos.appendChild(button3);
+        $(NEW_ILLUST_BUTTON)[0].append(pos);
+    }
+
     // 图片详情页
     function setMode(){
+
+        // 单图
+        function imagePage(){
+            let pos = $(BUTTON_POS);
+            if(pos.length === 0) return;
+            let button = createNormalButton("下载");
+            pos[0].appendChild(button);
+            button.addEventListener("click", async function(){
+                //下载同时自动点赞+收藏
+                if(addToFavor){
+                    try{
+                        document.getElementsByClassName("_35vRH4a")[0].click();
+                        document.getElementsByClassName("gtm-main-bookmark")[0].click();
+                    }catch(e){}
+                }
+                let [data, author, id] = getImageData();
+                let dlFolderId = await getFolderId(author, id);
+                if(dlFolderId === undefined){
+                    console.log("创建文件夹失败！尝试直接下载……")
+                }
+                else{
+                    data.folderId = dlFolderId;
+                }
+                download(data);
+                changeStyle(button);
+            });
+        }
+
+        // 多图
+        function mangaPage(){
+            let pos = $(BUTTON_POS);
+            if(pos.length === 0) return;
+            let button = createNormalButton("下载");
+            pos[0].appendChild(button);
+            //绑定点击按钮时下载事件
+            button.addEventListener("click", async () => {
+                //下载同时自动点赞+收藏
+                if(addToFavor){
+                    try{
+                        document.getElementsByClassName("_35vRH4a")[0].click();
+                        document.getElementsByClassName("gtm-main-bookmark")[0].click();
+                    }catch(e){}
+                }
+                let [data, author, id] = getImagesData();
+                let dlFolderId = await getFolderId(author, id);
+                if(dlFolderId === undefined){
+                    console.log("创建文件夹失败！尝试直接下载……");
+                }
+                else{
+                    data.folderId = dlFolderId;
+                }
+                downloadAll(data);
+                changeStyle(button);
+            });
+            let added = false;
+            function changeButton(){
+                if(added) return;
+                added = true;
+                $("span",button)[0].innerText = "下载全部";
+                let button2 = createNormalButton("下载选择");
+                pos[0].appendChild(button2);
+                button2.addEventListener("click", async () => {
+                    let [data, author, id] = getSelectData();
+                    let dlFolderId = await getFolderId(author, id);
+                    if (dlFolderId === undefined) {
+                        console.log("创建文件夹失败！尝试直接下载……");
+                    }
+                    else {
+                        data.folderId = dlFolderId;
+                    }
+                    downloadAll(data);
+                    changeStyle(button2);
+                });
+
+                function addMangaCheckbox(){
+                    let imgs = $(PIC_SRC);
+                    imgs.each((index,element)=>{
+                        element.before(createCheckbox());
+                    });
+                }            
+                waitForKeyElements(PIC_END, addMangaCheckbox, true);
+            }
+            let clickpos = $(PIC_SRC);
+            if(clickpos.length !== 0){
+                clickpos[0].addEventListener("click",changeButton)
+            }
+            clickpos = $(SHOW_ALL_BUTTON);
+            if(clickpos.length !== 0){
+                clickpos[0].addEventListener("click",changeButton)
+            }
+            clickpos = $(".gtm-main-bookmark");
+            if(clickpos.length !== 0){
+                clickpos[0].addEventListener("click",changeButton)
+            }
+        }
+
+        // 动图
+        function ugoiraPage(){
+            console.log("暂无法处理动图！")
+        }
+
+        function changeStyle(button){
+            button.className = "_1vHxmVH _35vRH4a";
+        }
+
+        function createNormalButton(text){
+            let button = document.createElement('div');
+            button.setAttribute('class', 'sc-181ts2x-01');
+            button.setAttribute('style', 'margin-right: 23px;');
+            button.innerHTML = `<button type="button" id="download" class="_35vRH4a"><span class="_3uX7m3X">${text}</span></button>`;
+            return button;
+        }
+
         if($(UGO_SRC).length !== 0){
             return ugoiraPage();
         }
@@ -200,99 +442,6 @@
         }
         return imagePage();
     };
-
-    // 单图
-    function imagePage(){
-        let pos = $(BUTTON_POS);
-        if(pos.length === 0) return;
-        let button = createNormalButton("下载");
-        pos[0].appendChild(button);
-        button.addEventListener("click", async function(){
-            //下载同时自动点赞+收藏
-            if(addToFavor){
-                try{
-                    document.getElementsByClassName("_35vRH4a")[0].click();
-                    document.getElementsByClassName("gtm-main-bookmark")[0].click();
-                }catch(e){}
-            }
-            let [data, author, id] = getImageData();
-            let dlFolderId = await getFolderId(author, id);
-            if(dlFolderId === undefined){
-                console.log("创建文件夹失败！尝试直接下载……")
-            }
-            else{
-                data.folderId = dlFolderId;
-            }
-            download(data);
-            changeStyle(button);
-        });
-    }
-
-    // 多图
-    function mangaPage(){
-        let pos = $(BUTTON_POS);
-        if(pos.length === 0) return;
-        let button = createNormalButton("下载");
-        pos[0].appendChild(button);
-        //绑定点击按钮时下载事件
-        button.addEventListener("click", async () => {
-            //下载同时自动点赞+收藏
-            if(addToFavor){
-                try{
-                    document.getElementsByClassName("_35vRH4a")[0].click();
-                    document.getElementsByClassName("gtm-main-bookmark")[0].click();
-                }catch(e){}
-            }
-            let [data, author, id] = getImagesData();
-            let dlFolderId = await getFolderId(author, id);
-            if(dlFolderId === undefined){
-                console.log("创建文件夹失败！尝试直接下载……");
-            }
-            else{
-                data.folderId = dlFolderId;
-            }
-            downloadAll(data);
-            changeStyle(button);
-        });
-        let added = false;
-        function changeButton(){
-            if(added) return;
-            added = true;
-            $("span",button)[0].innerText = "下载全部";
-            let button2 = createNormalButton("下载选择");
-            pos[0].appendChild(button2);
-            button2.addEventListener("click", async () => {
-                let [data, author, id] = getSelectData();
-                let dlFolderId = await getFolderId(author, id);
-                if (dlFolderId === undefined) {
-                    console.log("创建文件夹失败！尝试直接下载……");
-                }
-                else {
-                    data.folderId = dlFolderId;
-                }
-                downloadAll(data);
-                changeStyle(button2);
-            });
-            waitForKeyElements(PIC_END, addMangaCheckbox, true);
-        }
-        let clickpos = $(PIC_SRC);
-        if(clickpos.length !== 0){
-            clickpos[0].addEventListener("click",changeButton)
-        }
-        clickpos = $(SHOW_ALL_BUTTON);
-        if(clickpos.length !== 0){
-            clickpos[0].addEventListener("click",changeButton)
-        }
-        clickpos = $(".gtm-main-bookmark");
-        if(clickpos.length !== 0){
-            clickpos[0].addEventListener("click",changeButton)
-        }
-    }
-
-    // 动图
-    function ugoiraPage(){
-        console.log("暂无法处理动图！")
-    }
 
     function download(data){
         // console.log(data);
@@ -337,17 +486,14 @@
         if(folders){
             if(searchDirName === ""){
                 dlFolder = searchFolder(folders, author, pid);
-                if(!dlFolder){
-                    dlFolder = await creatFolder(author, pid);
-                    updateFolder({
-                        "folderId": dlFolder.id,
-                        "newDescription": `pid = ${pid}`
-                    })
-                }
             }
             else{
                 for(let folder of folders){
                     if(folder.name === searchDirName){
+                        if(searchDirId === ""){
+                            searchDirId = folder.id;
+                        }
+                        console.log(searchDirId);
                         dlFolder = searchFolder(folder.children, author, pid);
                     }
                     else{
@@ -381,6 +527,13 @@
             console.log("获取文件夹信息失败！");
             alert("下载失败！");
             return;
+        }
+        if(!dlFolder){
+            dlFolder = await creatFolder(author, pid);
+            updateFolder({
+                "folderId": dlFolder.id,
+                "newDescription": `pid = ${pid}`
+            })
         }
         return dlFolder.id;
     }
@@ -437,10 +590,13 @@
     // 创建文件夹
     function creatFolder(folderName, pid){
         return new Promise((resolve, reject) => {
+            if(searchDirId === ""){
+                searchDirId = undefined;
+            }
             GM_xmlhttpRequest({
                 url: EAGLE_CREATE_FOLDER_API_URL,
                 method: "POST",
-                data: JSON.stringify({ folderName: folderName }),
+                data: JSON.stringify({ folderName: folderName, parent: searchDirId }),
                 onload: function(response) {
                     var result = JSON.parse(response.response);
                     if (result.status === "success" && result.data && result.data.id) {
@@ -460,6 +616,9 @@
 
     // 更新文件夹信息
     function updateFolder(data){
+        if(Number(build_ver) < edit_folder_info){
+            return;
+        }
         GM_xmlhttpRequest({
             url: EAGLE_UPDATE_FOLDER_API_URL,
             method: "POST",
@@ -571,18 +730,6 @@
         return [data,author, id];
     };
 
-    function changeStyle(button){
-        button.className = "_1vHxmVH _35vRH4a";
-    }
-
-    function createNormalButton(text){
-        let button = document.createElement('div');
-        button.setAttribute('class', 'sc-181ts2x-01');
-        button.setAttribute('style', 'margin-right: 23px;');
-        button.innerHTML = `<button type="button" id="download" class="_35vRH4a"><span class="_3uX7m3X">${text}</span></button>`;
-        return button;
-    }
-
     function createCommonButton(text){
         let button = document.createElement('button');
         button.style.border = "none";
@@ -591,6 +738,7 @@
         button.style.fontSize = "x-small";
         button.style.fontWeight = "bold";
         button.style.color = "gray";
+        button.style.cursor = "pointer";
         button.innerText = text;
         return button;
     }
@@ -610,13 +758,6 @@
         // input_container.className = "cb_div";
         return input_container;
     };
-
-    function addMangaCheckbox(){
-        let imgs = $(PIC_SRC);
-        imgs.each((index,element)=>{
-            element.before(createCheckbox());
-        });
-    }
 
     function addDownloadButton(){
         let pos = document.createElement("div");
@@ -698,27 +839,6 @@
         });
     }
 
-    function bookmarkAppendButton(){
-        let button = document.createElement("div");
-        button.className = "sc-1ij5ui8-0 cBRwmk sc-13ywrd6-7 jDGNKo";
-        button.setAttribute("aria-disabled", "false");
-        button.setAttribute("role", "button");
-        button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 fRfnFc"><div class="sc-4a5gah-1 bxlGvy">下载</div></div>';
-        button.addEventListener("click", ()=>{
-            $(BOOKMARKS_SELECT).each((index, element)=>{
-                if($(SELECT_CHECK, element)[0].checked){
-                    downloadNewPage("https://www.pixiv.net" + $(SELECT_URL, element).attr("to"));
-                }
-            })
-        });
-        $(BDL_BUTTON_POS).append(button);
-        $("div[type=illust] .rp5asc-0:first").click();
-        $("div[type=illust] .rp5asc-0:first").click();
-        $(OVER_BUTTON).click(()=>{
-            waitForKeyElements(BOOKMARKS_BUTTON, bookmarksPage, true);
-        });
-    }
-
     async function downloadNewPage(url){
         let [data, author, id] = await getImagePage(url);
         let dlFolderId = await getFolderId(author, id);
@@ -730,44 +850,4 @@
         }
         download(data);
     }
-
-    
-    // 侦听URL是否发生变化，代码来自 https://blog.csdn.net/liubangbo/article/details/103272393
-    let _wr = function(type) {
-        var orig = history[type];
-        return function() {
-            var rv = orig.apply(this, arguments);
-            var e = new Event(type);
-            e.arguments = arguments;
-            window.dispatchEvent(e);
-            return rv;
-        };
-        };
-    history.pushState = _wr('pushState');
-    history.replaceState = _wr('replaceState')
-    window.addEventListener('replaceState', function(e) {
-        main();
-    });
-    window.addEventListener('pushState', function(e) {
-        main();
-    });
-
-    main();
 })();
-
-// function waitForKeyElements (
-//     selectorTxt,    /* Required: The jQuery selector string that
-//                         specifies the desired element(s).
-//                     */
-//     actionFunction, /* Required: The code to run when elements are
-//                         found. It is passed a jNode to the matched
-//                         element.
-//                     */
-//     bWaitOnce,      /* Optional: If false, will continue to scan for
-//                         new elements even after the first match is
-//                         found.
-//                     */
-//     iframeSelector  /* Optional: If set, identifies the iframe to
-//                         search.
-//                     */
-// )
