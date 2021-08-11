@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.5.0
+// @version                 0.5.2
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -19,7 +19,8 @@
 // @require                 https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
 // ==/UserScript==
 
-// 本次更新内容：新增排行榜下载按键，在最新版eagle中可创建指定位置的子文件夹，修复低版本eagle会报错的问题
+// 本次更新新增：新增排行榜下载按键，在最新版eagle中可创建指定位置的子文件夹
+// 修复：修复低版本eagle会报错的问题，修复重复创建文件夹的bug
 
 // 注意！因收藏页的复选框影响了原网页正常功能，现已将下载按键合并入“管理收藏”的功能中！
 // 似乎已经无影响了，小改动修复从收藏页跳转出去脚本不会执行的问题
@@ -79,26 +80,43 @@ const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
 const EAGLE_UPDATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/update`;
 const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
-// 全局变量
-var build_ver = "";
-GM_xmlhttpRequest({
-    url: EAGLE_APP_INFO_URL,
-    method: "GET",
-    onload: function(response) {
-        if(response.statusText !== "OK"){
-            console.log(`请检查eagle是否打开！`);
-            console.log(response);
-            alert("下载失败！")
-        }
-        else{
-            build_ver = JSON.parse(response.response).data.buildVersion;
-        }
-    }
-});
-
 
 (function(){
     'use strict';
+
+    // 全局变量
+    var folders = [];
+    var folders_need_create = []; // {author, pid}
+    var download_list = []; // {data, author, authorId}
+    var build_ver = "";
+    // 更新全局变量默认值
+    // 获取应用版本
+    GM_xmlhttpRequest({
+        url: EAGLE_APP_INFO_URL,
+        method: "GET",
+        onload: function(response) {
+            if(response.statusText !== "OK"){
+                console.log(`请检查eagle是否打开！`);
+                console.log(response);
+                alert("下载失败！")
+            }
+            else{
+                build_ver = JSON.parse(response.response).data.buildVersion;
+            }
+        }
+    });
+    // 获取文件夹列表
+    GM_xmlhttpRequest({
+        url: EAGLE_GET_FOLDERS_API_URL,
+        method: "GET",
+        redirect:'follow',
+        onload: function(response) {
+            if(response.status !== 200){
+                reject();
+            }
+            folders = JSON.parse(response.response).data;
+        }
+    });
 
     if (location.href.indexOf("pixiv.net") === -1) {
         console.log("This script only works on pixiv.net.");
@@ -126,6 +144,61 @@ GM_xmlhttpRequest({
     });
 
     main();
+
+    function download(data){
+        // console.log(data);
+        GM_xmlhttpRequest({
+            url: EAGLE_IMPORT_API_URL,
+            method: "POST",
+            data: JSON.stringify(data),
+            onload: function(response) {
+                if(response.statusText !== "OK"){
+                    console.log(`请检查eagle是否打开！`);
+                    console.log(response);
+                    alert("下载失败！")
+                }
+            }
+        });
+    }
+
+    async function downloadList(){
+        console.log(`需要创建文件夹：${folders_need_create.length}`)
+        for(let folder of folders_need_create){
+            console.log(folder);
+            await creatFolder(folder.author, folder.pid);
+        }
+        console.log("文件夹创建完成！开始下载");
+        for(let data of download_list){
+            console.log(data);
+            getFolderId(data.author, data.authorId).then((dlFolderId)=>{
+                if(dlFolderId === undefined){
+                    console.log("创建文件夹失败！尝试直接下载……")
+                }
+                else{
+                    data.item.folderId = dlFolderId;
+                }
+                download(data.item);
+                download_list = [];
+                folders_need_create = [];
+            });
+        }
+    };
+
+    function downloadAll(data){
+        // console.log(data);
+        GM_xmlhttpRequest({
+            url: EAGLE_IMPORT_API_URLS,
+            method: "POST",
+            data: JSON.stringify(data),
+            onload: function(response) {
+                if(response.statusText !== "OK"){
+                    alert("下载失败！");
+                    console.log(`请检查eagle是否打开！`);
+                    console.log(response);
+                }
+            }
+        });
+    }
 
     function main(){
         // 处理还未完成改版的旧页面和一些特殊情况
@@ -191,10 +264,18 @@ GM_xmlhttpRequest({
                 });
             });
             button3.addEventListener("click", ()=>{
+                let count = $(".to_eagle").length;
                 $(".to_eagle", element).each((i,e)=>{
                     if(e.checked){
-                        downloadNewPage(e.parentElement.nextElementSibling.href);
+                        addToDownloadList(e.parentElement.nextElementSibling.href).then(()=>{
+                            if(--count === 0){
+                                downloadList();
+                            }
+                        });
                         e.checked = false;
+                    }
+                    else if(--count === 0){
+                        downloadList();
                     }
                 });
                 button3.style.color = "rgb(0 150 250 / 70%)";
@@ -219,9 +300,13 @@ GM_xmlhttpRequest({
             button.setAttribute("role", "button");
             button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 fRfnFc"><div class="sc-4a5gah-1 bxlGvy">下载</div></div>';
             button.addEventListener("click", ()=>{
+                let count = $(BOOKMARKS_SELECT).length;
                 $(BOOKMARKS_SELECT).each((index, element)=>{
                     if($(SELECT_CHECK, element)[0].checked){
-                        downloadNewPage("https://www.pixiv.net" + $(SELECT_URL, element).attr("to"));
+                        addToDownloadList("https://www.pixiv.net" + $(SELECT_URL, element).attr("to"));
+                    }
+                    if(--count === 0){
+                        downloadList();
                     }
                 })
             });
@@ -259,9 +344,18 @@ GM_xmlhttpRequest({
                 });
             });
             button3.addEventListener("click", ()=>{
+                let count = $(".to_eagle").length;
                 $(".to_eagle").each(async (i,e)=>{
                     if(e.checked){
-                        downloadNewPage(e.parentElement.parentElement.firstElementChild.href);
+                        addToDownloadList(e.parentElement.parentElement.firstElementChild.href).then(()=>{
+                            if(--count === 0){
+                                downloadList();
+                            }
+                        });
+                        e.checked = false;
+                    }
+                    else if(--count === 0){
+                        downloadList();
                     }
                 });
                 $("button",button3).css("color", "black");
@@ -305,10 +399,18 @@ GM_xmlhttpRequest({
             });
         });
         button3.addEventListener("click", ()=>{
+            let count = $(".to_eagle").length;
             $(".to_eagle").each(async (i,e)=>{
                 if(e.checked){
-                    downloadNewPage(e.parentElement.nextElementSibling.firstElementChild.href);
+                    addToDownloadList(e.parentElement.nextElementSibling.firstElementChild.href).then(()=>{
+                        if(--count === 0){
+                            downloadList();
+                        }
+                    });
                     e.checked = false;
+                }
+                else if(--count === 0){
+                    downloadList();
                 }
             });
             $("button",button3).css("color", "black");
@@ -324,6 +426,24 @@ GM_xmlhttpRequest({
 
         // 单图
         function imagePage(){
+            function getImageData(){
+                let image = document.getElementsByClassName("sc-1qpw8k9-3")[0];// 单图
+                if(!image){
+                    alert("下载失败！");
+                    return;
+                }
+                let [name, annotation, tags, author, id] = getCommonInfo();
+                let data = {
+                    "url": image.href,
+                    "name": name,
+                    "website": document.URL,
+                    "tags": tags,
+                    "annotation": annotation,
+                    "headers": HEADERS
+                }
+                return [data, author, id];
+            };
+
             let pos = $(BUTTON_POS);
             if(pos.length === 0) return;
             let button = createNormalButton("下载");
@@ -351,6 +471,49 @@ GM_xmlhttpRequest({
 
         // 多图
         function mangaPage(){
+            function getImagesData(){
+                let images = $(PIC_SRC);
+                images = images.length === 0 ? $(PICS_SRC) : images;
+                if(images.length === 0){
+                    alert("下载失败！");
+                    return [null, null];
+                }
+                let data = {"items":[]};
+                let [name, annotation, tags, author, id] = getCommonInfo();
+                images.each((index, url) => {
+                    if(url === undefined) return;
+                    data.items.push({
+                        "url": url.href,
+                        "name": name + `_${index}`,
+                        "website": document.URL,
+                        "annotation": annotation,
+                        "tags": tags,
+                        "headers": HEADERS
+                    });
+                    index++;
+                });
+                return [data,author, id];
+            };
+            
+            function getSelectData(){
+                let checkbox = $(".to_eagle");
+                let [name, annotation, tags, author, id] = getCommonInfo();
+                let data = {"items":[]};
+                checkbox.each((index, element)=>{
+                    if(element.checked === true){
+                        data.items.push({
+                            "url": element.parentElement.nextElementSibling.href,
+                            "name": name + `_${index}`,
+                            "website": document.URL,
+                            "annotation": annotation,
+                            "tags": tags,
+                            "headers": HEADERS
+                        })
+                    }
+                });
+                return [data, author, id];
+            };
+
             let pos = $(BUTTON_POS);
             if(pos.length === 0) return;
             let button = createNormalButton("下载");
@@ -443,45 +606,44 @@ GM_xmlhttpRequest({
         return imagePage();
     };
 
-    function download(data){
-        // console.log(data);
-        GM_xmlhttpRequest({
-            url: EAGLE_IMPORT_API_URL,
-            method: "POST",
-            data: JSON.stringify(data),
-            onload: function(response) {
-                if(response.statusText !== "OK"){
-                    console.log(`请检查eagle是否打开！`);
-                    console.log(response);
-                    alert("下载失败！")
-                }
-            }
-        });
-    }
-
-    function downloadAll(data){
-        // console.log(data);
-        GM_xmlhttpRequest({
-            url: EAGLE_IMPORT_API_URLS,
-            method: "POST",
-            data: JSON.stringify(data),
-            onload: function(response) {
-                if(response.statusText !== "OK"){
-                    alert("下载失败！");
-                    console.log(`请检查eagle是否打开！`);
-                    console.log(response);
-                }
-            }
-        });
-    }
-
     // 获取文件夹id
     async function getFolderId(author, pid){
+        // 搜索同名或注释中包含有pid信息的文件夹
+        function searchFolder(folders, author, pid){
+            for(let folder of folders){
+                let description = folder.description;
+                description = description ? description.match(/(?<=pid ?[:=] ?)\d+/) : "";
+                if((description && description[0] === pid) || folder.name === author){
+                    if(description){
+                        if(description[0] !== pid){
+                            continue;
+                        }
+                    }
+                    else{
+                        let d = "";
+                        for(let s of folder.description.split("\n")){
+                            if(!/^ *pid ?[:=] ?/.test(s)){
+                                d += "\n" + s;
+                            }
+                        }
+                        updateFolder({
+                            "folderId": folder.id,
+                            "newDescription":`pid = ${pid}${d}`
+                        })
+                    }
+                    return folder;
+                }
+            }
+            for(let folder of folders){
+                let target = searchFolder(folder.children, author, pid);
+                if(target) return target;
+            }
+        }
+    
         if(!pid){
             console.log("获取用户id失败！");
         }
         if(!author && !pid) return;
-        let folders = await getFolders();
         let dlFolder;
         if(folders){
             if(searchDirName === ""){
@@ -506,7 +668,7 @@ GM_xmlhttpRequest({
                             }
                             else{
                                 let d = "";
-                                for(let s of folder.description.split("\n")){
+                                for(let s of description.split("\n")){
                                     if(!/^ *pid ?[:=] ?/.test(s)){
                                         d += "\n" + s;
                                     }
@@ -529,62 +691,17 @@ GM_xmlhttpRequest({
             return;
         }
         if(!dlFolder){
-            dlFolder = await creatFolder(author, pid);
-            updateFolder({
-                "folderId": dlFolder.id,
-                "newDescription": `pid = ${pid}`
-            })
+            if(folders_need_create){
+                for(let f of folders_need_create){
+                    if(f.pid === pid){
+                        return undefined;
+                    }
+                }
+            }
+            folders_need_create.push({author,pid});
+            return undefined;
         }
         return dlFolder.id;
-    }
-
-    // 搜索同名或注释中包含有pid信息的文件夹
-    function searchFolder(folders, author, pid){
-        for(let folder of folders){
-            let description = folder.description;
-            description = description ? description.match(/(?<=pid ?[:=] ?)\d+/) : "";
-            if((description && description[0] === pid) || folder.name === author){
-                if(description){
-                    if(description[0] !== pid){
-                        continue;
-                    }
-                }
-                else{
-                    let d = "";
-                    for(let s of folder.description.split("\n")){
-                        if(!/^ *pid ?[:=] ?/.test(s)){
-                            d += "\n" + s;
-                        }
-                    }
-                    updateFolder({
-                        "folderId": folder.id,
-                        "newDescription":`pid = ${pid}${d}`
-                    })
-                }
-                return folder;
-            }
-        }
-        for(let folder of folders){
-            let target = searchFolder(folder.children, author, pid);
-            if(target) return target;
-        }
-    }
-
-    // 获取文件夹
-    function getFolders(){
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                url: EAGLE_GET_FOLDERS_API_URL,
-                method: "GET",
-                redirect:'follow',
-                onload: function(response) {
-                    if(response.status !== 200){
-                        reject();
-                    }
-                    resolve(JSON.parse(response.response).data);
-                }
-            });
-        })
     }
 
     // 创建文件夹
@@ -604,6 +721,12 @@ GM_xmlhttpRequest({
                             "folderId":result.data.id,
                             "newDescription":`pid = ${pid}`
                         });
+                        folders.push({
+                            id: result.data.id,
+                            name: folderName,
+                            description: `pid = ${pid}`
+                        });
+                        console.log(folders);
                         return resolve(result.data);
                     }
                     else{
@@ -668,67 +791,6 @@ GM_xmlhttpRequest({
         }
         return [name, annotation, tags, author, id];
     }
-
-    function getImageData(){
-        let image = document.getElementsByClassName("sc-1qpw8k9-3")[0];// 单图
-        if(!image){
-            alert("下载失败！");
-            return;
-        }
-        let [name, annotation, tags, author, id] = getCommonInfo();
-        let data = {
-            "url": image.href,
-            "name": name,
-            "website": document.URL,
-            "tags": tags,
-            "annotation": annotation,
-            "headers": HEADERS
-        }
-        return [data, author, id];
-    };
-
-    function getSelectData(){
-        let checkbox = $(".to_eagle");
-        let [name, annotation, tags, author, id] = getCommonInfo();
-        let data = {"items":[]};
-        checkbox.each((index, element)=>{
-            if(element.checked === true){
-                data.items.push({
-                    "url": element.parentElement.nextElementSibling.href,
-                    "name": name + `_${index}`,
-                    "website": document.URL,
-                    "annotation": annotation,
-                    "tags": tags,
-                    "headers": HEADERS
-                })
-            }
-        });
-        return [data, author, id];
-    };
-
-    function getImagesData(){
-        let images = $(PIC_SRC);
-        images = images.length === 0 ? $(PICS_SRC) : images;
-        if(images.length === 0){
-            alert("下载失败！");
-            return [null, null];
-        }
-        let data = {"items":[]};
-        let [name, annotation, tags, author, id] = getCommonInfo();
-        images.each((index, url) => {
-            if(url === undefined) return;
-            data.items.push({
-                "url": url.href,
-                "name": name + `_${index}`,
-                "website": document.URL,
-                "annotation": annotation,
-                "tags": tags,
-                "headers": HEADERS
-            });
-            index++;
-        });
-        return [data,author, id];
-    };
 
     function createCommonButton(text){
         let button = document.createElement('button');
@@ -829,7 +891,7 @@ GM_xmlhttpRequest({
                             console.log("获取用户id失败！")
                             console.log(illustData);
                         }
-                        resolve([item, author, authorId]);
+                        resolve({item, author, authorId});
                     }
                     catch(e){
                         reject(e);
@@ -839,15 +901,10 @@ GM_xmlhttpRequest({
         });
     }
 
-    async function downloadNewPage(url){
-        let [data, author, id] = await getImagePage(url);
-        let dlFolderId = await getFolderId(author, id);
-        if(dlFolderId === undefined){
-            console.log("创建文件夹失败！尝试直接下载……")
-        }
-        else{
-            data.folderId = dlFolderId;
-        }
-        download(data);
+    async function addToDownloadList(url){
+        let data /* {data, author, authorId} */ = await getImagePage(url);
+        getFolderId(data.author, data.authorId);
+        download_list.push(data);
     }
 })();
+
