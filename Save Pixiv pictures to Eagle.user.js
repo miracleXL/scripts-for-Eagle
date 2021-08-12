@@ -3,39 +3,47 @@
 // @name:zh                 下载Pixiv图片到Eagle
 // @name:zh-CN              下载Pixiv图片到Eagle
 // @description             Collect pictures in pixiv to eagle.
-// @description:zh-CN       可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、排行榜、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
-// @description:zh          可根据需求自行修改代码中设置项。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、排行榜、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
+// @description:zh-CN       可通过油猴插件提供的按键修改部分功能设置。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、排行榜、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
+// @description:zh          可通过油猴插件提供的按键修改部分功能设置。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、排行榜、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.5.2
+// @version                 0.5.4
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
 // @connect                 www.pixiv.net
 // @grant                   GM_xmlhttpRequest
 // @grant                   GM_registerMenuCommand
+// @grant                   GM_setValue
+// @grant                   GM_getValue
+// @grant                   GM_addElement
 // @require                 https://code.jquery.com/jquery-3.5.1.min.js
 // @require                 https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
 // ==/UserScript==
 
-// 本次更新新增：新增排行榜下载按键，在最新版eagle中可创建指定位置的子文件夹
-// 修复：修复低版本eagle会报错的问题，修复重复创建文件夹的bug
+// 本次更新新增：可将设置存储在浏览器中，打开pixiv的网页，点击油猴插件，再点击本脚本下面的“更新设置”，将在网页中添加一个设置页面
 
-// 注意！因收藏页的复选框影响了原网页正常功能，现已将下载按键合并入“管理收藏”的功能中！
-// 似乎已经无影响了，小改动修复从收藏页跳转出去脚本不会执行的问题
-// pixiv的网站前端仍在频繁更新中，脚本随时可能失效
-
-// 设置项
-const patt = / *[@＠◆■◇☆⭐️🌟🦇💎🔞🍅🌱🐻🍬：:\\\/].*/; // 处理作者名多余后缀的正则
-const saveTags = true; // 是否保存标签
-const tagAuthor = true; // 是否将作者名加入标签
-const addToFavor = true; // 下载时是否同时加入收藏
-const searchDirName = ""; // 在判断是否需要创建文件夹时，限定搜索和新建子文件夹的位置，在引号内输入文件夹名，该文件夹应当不存在父文件夹。留空则搜索全部
-let   searchDirId = ""; // 一般无需填写，上一行所指定文件夹的id（eagle中选中文件夹右键复制链接，获得如‘eagle://folder/K4130PELEY5W9’字符串，文件夹id就是其中K4130PELEY5W9部分）。填写会使上一行设置失效，可用来设置为新建文件夹创建到某个子文件夹中。
-const enableNewIllust = true; // 关注用户新作品页面添加下载按钮
-const useCheckbox = true; // 为true时在每一张图上添加复选框代替下载键，此时下载键将移至图片所在区域上方标题处
+// 更新设置项
+// 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
+const PATT = / *[@＠◆■◇☆⭐️🌟🦇💎🔞🍅🌱🐻🍬：:\\\/].*/; // 处理作者名多余后缀的正则
+const SAVE_TAGS = true; // 是否保存标签
+const TAG_AUTHOR = true; // 是否将作者名加入标签
+const ADD_TO_FAVOR = true; // 下载时是否同时加入收藏
+const SEARCH_DIR_NAME = ""; // 在需要创建新文件夹时，新建文件夹的父文件夹名，在引号内输入文件夹名。留空则直接创建
+const SEARCH_DIR_ID = ""; // 一般无需填写，上一行所指定文件夹的id（eagle中选中文件夹右键复制链接，获得如‘eagle://folder/K4130PELEY5W9’字符串，文件夹id就是其中K4130PELEY5W9部分）。填写会忽略上一行设置，可用来设置新建文件夹创建到某个子文件夹中。
+const USE_CHECK_BOX = true; // 为true时在每一张图上添加复选框代替下载键，此时下载键将移至图片所在区域上方标题处
 // 设置项结束
+
+// 读取已存储设置
+var patt = new RegExp(GM_getValue("patt", PATT.source));
+var saveTags = GM_getValue("saveTags", SAVE_TAGS);
+var tagAuthor = GM_getValue("tagAuthor", TAG_AUTHOR);
+var addToFavor = GM_getValue("addToFavor", ADD_TO_FAVOR);
+var searchDirName = GM_getValue("searchDirName", SEARCH_DIR_NAME);
+var searchDirId = GM_getValue("searchDirId", SEARCH_DIR_ID);
+var useCheckbox = GM_getValue("useCheckbox", USE_CHECK_BOX);
+// 读取结束
 
 // Eagle支持不同功能的版本号
 const edit_folder_info = 20210401; // 支持修改文件夹信息的版本build号
@@ -219,7 +227,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
     // 分情况处理
     function router(){
         // 关注用户新作品
-        if(enableNewIllust && document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
+        if(document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
             waitForKeyElements(".x7wiBV0", newIllustPage, true);
             return false;
         }
@@ -302,10 +310,14 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
             button.addEventListener("click", ()=>{
                 let count = $(BOOKMARKS_SELECT).length;
                 $(BOOKMARKS_SELECT).each((index, element)=>{
-                    if($(SELECT_CHECK, element)[0].checked){
-                        addToDownloadList("https://www.pixiv.net" + $(SELECT_URL, element).attr("to"));
+                    let e = $(SELECT_CHECK, element)[0];
+                    if(e.checked){
+                        addToDownloadList("https://www.pixiv.net" + $(SELECT_URL, element).attr("to")).then(()=>{
+                            downloadList();
+                        });
+                        e.checked = false;
                     }
-                    if(--count === 0){
+                    else if(--count === 0){
                         downloadList();
                     }
                 })
@@ -907,4 +919,73 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
         download_list.push(data);
     }
 })();
+
+GM_registerMenuCommand("更新设置", updateConfig);
+
+function updateConfig(){
+    let div = document.createElement("div");
+    function createNewConfig(text, type, value){
+        let p = document.createElement("p");
+        let input = document.createElement("input");
+        input.setAttribute("type", type);
+        if(type === "text"){
+            input.style.width = "100%";
+            input.value = value;
+            p.innerText = text;
+            div.appendChild(p);
+            div.appendChild(input);
+        }
+        else if(type === "checkbox"){
+            input.style.marginLeft = "10px";
+            input.checked = value;
+            p.appendChild(input);
+            p.append(text);
+            div.appendChild(p);
+        }
+        return input;
+    }
+    // 布尔值
+    let saveTags_input = createNewConfig("是否保存标签", "checkbox", saveTags);
+    let tagAuthor_input = createNewConfig("是否将作者名加入标签", "checkbox", tagAuthor);
+    let addToFavor_input = createNewConfig("下载时是否同时加入收藏", "checkbox", addToFavor);
+    let useCheckbox_input = createNewConfig("使用复选框，而不是每张图添加下载按键", "checkbox", useCheckbox);
+    // 文本
+    let patt_input = createNewConfig("正则表达式，处理作者名多余后缀：", "text", patt.source);
+    let searchDirName_input = createNewConfig("父文件夹名：\n（在需要创建新文件夹时，新建文件夹的父文件夹名，在引号内输入文件夹名。留空则直接创建）", "text", searchDirName);
+    let searchDirId_input = createNewConfig("父文件夹id：\n（一般无需填写，填写会忽略上一行设置，可用来设置新建文件夹创建到某个子文件夹中。）\n（eagle中选中文件夹右键复制链接，获得如‘eagle://folder/K4130PELEY5W9’字符串，文件夹id就是其中K4130PELEY5W9部分）", "text", searchDirId);
+    let button_save = document.createElement("button");
+    let button_cancel = document.createElement("button");
+    button_save.innerText = "保存";
+    button_cancel.innerText = "取消";
+    button_save.style.margin = "20px";
+    button_cancel.style.margin = "20px";
+    button_save.addEventListener("click", ()=>{
+        saveTags = saveTags_input.checked;
+        tagAuthor = tagAuthor_input.checked;
+        addToFavor = addToFavor_input.checked;
+        useCheckbox = useCheckbox_input.checked;
+        patt = patt_input.value;
+        searchDirName = searchDirName_input.value;
+        searchDirId = searchDirId_input.value;
+        GM_setValue("patt", patt);
+        GM_setValue("saveTags", saveTags);
+        GM_setValue("tagAuthor", tagAuthor);
+        GM_setValue("addToFavor", addToFavor);
+        GM_setValue("searchDirName", searchDirName);
+        GM_setValue("searchDirId", searchDirId);
+        GM_setValue("useCheckbox", useCheckbox);
+    });
+    button_cancel.addEventListener("click",()=>{
+        div.remove();
+    });
+    div.appendChild(button_save);
+    div.appendChild(button_cancel);
+    div.style.position = "fixed";
+    div.style.width = "80%";
+    div.style.top = "10%";
+    div.style.left = "10%";
+    div.style.padding = "15px";
+    div.style.background = "white";
+    document.body.appendChild(div);
+}
 
