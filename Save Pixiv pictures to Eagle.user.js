@@ -964,7 +964,7 @@ function updateConfig(){
         tagAuthor = tagAuthor_input.checked;
         addToFavor = addToFavor_input.checked;
         useCheckbox = useCheckbox_input.checked;
-        patt = patt_input.value;
+        patt = new RegExp(patt_input.value);
         searchDirName = searchDirName_input.value;
         searchDirId = searchDirId_input.value;
         GM_setValue("patt", patt);
