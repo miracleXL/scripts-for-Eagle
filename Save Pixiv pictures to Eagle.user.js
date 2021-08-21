@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.5.4
+// @version                 0.5.5
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -22,7 +22,7 @@
 // @require                 https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
 // ==/UserScript==
 
-// 本次更新新增：添加便于理解的更新设置页面，可将设置存储在浏览器中，不再需要随脚本更新重新设置。打开pixiv的网页，点击油猴插件，再点击本脚本下面的“更新设置”，将在网页中添加一个设置页面
+// 本次更新尝试修复收藏页中批量下载时会重复创建文件夹的问题
 
 // 更新设置项
 // 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
@@ -313,7 +313,9 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
                     let e = $(SELECT_CHECK, element)[0];
                     if(e.checked){
                         addToDownloadList("https://www.pixiv.net" + $(SELECT_URL, element).attr("to")).then(()=>{
-                            downloadList();
+                            if(--count === 0){
+                                downloadList();
+                            }
                         });
                         e.checked = false;
                     }
