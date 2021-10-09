@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.5.5
+// @version                 0.5.6
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -96,7 +96,8 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
     var folders = [];
     var folders_need_create = []; // {author, pid}
     var download_list = []; // {data, author, authorId}
-    var build_ver = "";
+    var build_ver = ""; // Eagle build version
+    var run_mode = "else"; // "else" || "image" || "manga" || "ugoira" 
     // 更新全局变量默认值
     // 获取应用版本
     GM_xmlhttpRequest({
@@ -440,6 +441,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
         // 单图
         function imagePage(){
+            run_mode = "image";
             function getImageData(){
                 let image = document.getElementsByClassName("sc-1qpw8k9-3")[0];// 单图
                 if(!image){
@@ -485,6 +487,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
         // 多图
         function mangaPage(){
+            run_mode = "manga";
             function getImagesData(){
                 let images = $(PIC_SRC);
                 images = images.length === 0 ? $(PICS_SRC) : images;
@@ -596,6 +599,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
         // 动图
         function ugoiraPage(){
+            run_mode = "ugoira";
             console.log("暂无法处理动图！")
         }
 
@@ -673,7 +677,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
                         dlFolder = searchFolder(folder.children, author, pid);
                     }
                     else{
-                        let description = folder.description.match(/(?<=pid ?[:=] ?)\d+/);
+                        let description = folder.description?.match(/(?<=pid ?[:=] ?)\d+/);
                         if((description && description[0] === pid) || folder.name === author){
                             if(description){
                                 if(description[0] !== pid){
@@ -705,15 +709,20 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
             return;
         }
         if(!dlFolder){
-            if(folders_need_create){
-                for(let f of folders_need_create){
-                    if(f.pid === pid){
-                        return undefined;
+            if(run_mode == "else"){
+                if(folders_need_create){
+                    for(let f of folders_need_create){
+                        if(f.pid === pid){
+                            return undefined;
+                        }
                     }
                 }
+                folders_need_create.push({author,pid});
+                return undefined;
             }
-            folders_need_create.push({author,pid});
-            return undefined;
+            else{
+                dlFolder = await creatFolder(author, pid);
+            }
         }
         return dlFolder.id;
     }
