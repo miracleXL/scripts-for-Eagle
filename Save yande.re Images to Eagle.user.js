@@ -9,7 +9,7 @@
 // @namespace           https://github.com/miracleXL
 // @homepageURL         https://github.com/miracleXL/scripts-for-Eagle
 // @icon                https://yande.re/favicon.ico
-// @version             0.1.2
+// @version             0.1.3
 
 // @author              miracleXL
 // @match               yande.re/post/show/*
@@ -62,6 +62,7 @@
     addButton();
 
     function download(data){
+        // console.log(data);
         GM_xmlhttpRequest({
             url: EAGLE_IMPORT_API_URL,
             method: "POST",
@@ -79,12 +80,12 @@
         let pool = document.getElementsByClassName("status-notice");
         pool = pool[pool.length-1];
         let poolName;
-        if(pool){
+        if(pool && pool.id.startsWith("pool")){
             try{
-                poolName = pool.children[0].children[0].children[2].textContent + pool.children[0].children[0].children[1].textContent;
+                poolName = pool.querySelector("p").children[3].textContent;
             }
             catch(e){
-                console.log("未知错误！");
+                console.log("获取pool名失败！");
                 console.log(e);
             }
         }
@@ -100,13 +101,13 @@
         };
         if(saveTags){
             for(let tag of document.getElementsByClassName("tag-type-artist")){
-                data.tags.push(tag.children[3].textContent);
+                data.tags.push(tag.children[1].textContent);
             }
             for(let tag of document.getElementsByClassName("tag-type-copyright")){
-                data.tags.push(tag.children[3].textContent);
+                data.tags.push(tag.children[1].textContent);
             }
             for(let tag of document.getElementsByClassName("tag-type-general")){
-                data.tags.push(tag.children[3].textContent);
+                data.tags.push(tag.children[1].textContent);
             };
         }
         return [data,poolName];
@@ -162,6 +163,7 @@
                         return resolve(result.data);
                     }
                     else{
+                        console.log("文件夹创建失败！")
                         return reject();
                     }
                 }
