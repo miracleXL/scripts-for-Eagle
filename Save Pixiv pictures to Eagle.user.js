@@ -7,6 +7,7 @@
 // @description:zh          可通过油猴插件提供的按键修改部分功能设置。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、排行榜、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
 
 // @namespace               https://github.com/miracleXL
+// @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
 // @version                 0.5.7
 // @author                  miracleXL
