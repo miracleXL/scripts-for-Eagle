@@ -8,7 +8,7 @@
 
 // @namespace               https://github.com/miracleXL
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.5.6
+// @version                 0.5.7
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -22,7 +22,8 @@
 // @require                 https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
 // ==/UserScript==
 
-// 本次更新尝试修复收藏页中批量下载时会重复创建文件夹的问题
+// 修复pixiv网页改动导致所有页面均无法下载的问题。删去了排行榜页每张图添加下载按键的设置方法。
+// 修复了存储设置项中的正则保存错误。
 
 // 更新设置项
 // 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
@@ -44,33 +45,36 @@ var searchDirName = GM_getValue("searchDirName", SEARCH_DIR_NAME);
 var searchDirId = GM_getValue("searchDirId", SEARCH_DIR_ID);
 var useCheckbox = GM_getValue("useCheckbox", USE_CHECK_BOX);
 // 读取结束
+// 尝试避免正则保存错误带来的后果
+if(patt.source === "[object Object]"){
+    patt = new RegExp(PATT);
+}
 
 // Eagle支持不同功能的版本号
 const edit_folder_info = 20210401; // 支持修改文件夹信息的版本build号
 const create_child_folder = 20210806; // 支持创建子文件夹的版本build号
 
-//Pixiv页面中的标签和标签翻译
-const TAG_SELECTOR = ".pj1a4x-1.ePBhWV";
-// 页面图片选择器
-const PAGE_SELECTOR = "div[type=illust] .rp5asc-0"; // Pixiv首页及用户页
-const BUTTON_SELECTOR = ".sc-7zddlj-1.bfLCvR"; // 使用添加选择框的方式时的下载按钮位置
-const NEW_ILLUST_SELECTOR = ".thumbnail-menu"; // 关注用户新作品
-const NEW_ILLUST_BUTTON = ".column-menu"; // 新作品页按键位置
+// 各种页面元素JQuery选择器
+const PAGE_SELECTOR = "div[type=illust] .sc-rp5asc-0"; // Pixiv首页及用户页图片选择器
+const BUTTON_SELECTOR = ".sc-7zddlj-1"; // 使用添加选择框的方式时的下载按钮位置
+const NEW_ILLUST_BUTTON = ".sc-192ftwf-0"; // 新作品页按键位置
+const RANK_PAGE_BUTTON = "nav.column-menu"; // 排行榜按键位置
+const DL_ILLUST_BUTTON = ".sc-iasfms-2"; // 不使用复选框时，下载单张图片的按键位置
 // 收藏页
-const BOOKMARKS_BUTTON = "div.sc-1u8zqt7-0.hiKlBL.sc-1dg0za1-1.sc-1dg0za1-2"; // 管理收藏按键
-const BDL_BUTTON_POS = "div.sc-13ywrd6-4.cngkan"; // 管理收藏中下载按键位置
-const OVER_BUTTON = "div.sc-1ij5ui8-0.cBRwmk"; // 管理收藏结束按键
-const BOOKMARKS_SELECT = "div[type=illust]"
+const BOOKMARKS_BUTTON = "div.sc-1u8zqt7-0"; // 管理收藏按键
+const BDL_BUTTON_POS = "div.sc-13ywrd6-4"; // 管理收藏中下载按键位置
+const OVER_BUTTON = ".sc-1ij5ui8-0"; // 管理收藏结束按键
+const BOOKMARK_SELECT = "div[type=illust]"; // 管理收藏页图片选择器
 const SELECT_URL = "span:first";
 const SELECT_CHECK = "input.sc-8ggyxi-4";
 // 作品详细页面
-const BUTTON_POS = ".sc-181ts2x-0.jPZrYy"; // 下载按键位置
+const BUTTON_POS = ".sc-181ts2x-0"; // 下载按键位置
 const PIC_SRC = ".sc-1qpw8k9-3"; // 图片位置
-const SHOW_ALL_BUTTON = ".emr523-0"; // 多图时显示全部的按键
+const SHOW_ALL_BUTTON = ".sc-emr523-0"; // 多图时显示全部的按键
 const PIC_END = ".gtm-illust-work-scroll-finish-reading" // 展开多图时结束元素
-const UGO_SRC = ".tu09d3-1.MNNrM"; // 动图
-const AUTHOR = ".sc-10gpz4q-6.hsjhjk > div:first-child"; // 作者名
-const AUTHOR_ID = ".sc-10gpz4q-6.hsjhjk"; // 作者id
+const UGO_SRC = ".sc-tu09d3-1"; // 动图
+const TAG_SELECTOR = ".sc-pj1a4x-1"; // 标签和标签翻译
+const AUTHOR = ".sc-10gpz4q-6"; // 作者
 
 const HEADERS = {
     "referer": "https://www.pixiv.net/",
@@ -121,6 +125,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
         redirect:'follow',
         onload: function(response) {
             if(response.status !== 200){
+                alert(`请检查eagle是否打开！`);
                 reject();
             }
             folders = JSON.parse(response.response).data;
@@ -156,6 +161,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
     function download(data){
         // console.log(data);
+        if(!data) return;
         GM_xmlhttpRequest({
             url: EAGLE_IMPORT_API_URL,
             method: "POST",
@@ -164,6 +170,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
                 if(response.statusText !== "OK"){
                     console.log(`请检查eagle是否打开！`);
                     console.log(response);
+                    console.log(data);
                     alert("下载失败！")
                 }
             }
@@ -195,6 +202,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
     function downloadAll(data){
         // console.log(data);
+        if(!data || data.length === 0) return;
         GM_xmlhttpRequest({
             url: EAGLE_IMPORT_API_URLS,
             method: "POST",
@@ -225,11 +233,11 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
         }
     }
 
-    // 分情况处理
+    // 处理一些还未完成改造的旧页面或特殊情况
     function router(){
         // 关注用户新作品
         if(document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
-            waitForKeyElements(".x7wiBV0", newIllustPage, true);
+            waitForKeyElements(NEW_ILLUST_BUTTON, newIllustPage, true);
             return false;
         }
         else if(document.URL.search("bookmarks") !== -1){ // 收藏页面
@@ -237,17 +245,10 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
             return true;
         }
         else if(document.URL.startsWith("https://www.pixiv.net/ranking.php")){
-            if(useCheckbox){
-                waitForKeyElements(".ranking-image-item", (element)=>{
-                    element.before(createCheckbox());
-                }, false);
-                rankingPage();
-            }
-            else{
-                waitForKeyElements(NEW_ILLUST_SELECTOR, (element)=>{
-                    element.append(addDownloadButton());
-                }, true);
-            }
+            waitForKeyElements(".ranking-image-item", (element)=>{
+                element.before(createCheckbox());
+            }, false);
+            rankingPage();
             return false;
         }
         return false;
@@ -256,64 +257,32 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
     // 网站改版后页面通用样式
     function newPageCommon(element){
         if(useCheckbox){
-            let button1 = createCommonButton("全选");
-            let button2 = createCommonButton("取消");
-            let button3 = createCommonButton("下载");
-            button1.className = "button_to_eagle";
-            button2.className = "button_to_eagle";
-            button3.className = "button_to_eagle";
-            button1.addEventListener("click", ()=>{
-                $(".to_eagle", element).each((i,e)=>{
-                    e.checked = true;
-                });
-            });
-            button2.addEventListener("click", ()=>{
-                $(".to_eagle", element).each((i,e)=>{
-                    e.checked = false;
-                });
-            });
-            button3.addEventListener("click", ()=>{
-                let count = $(".to_eagle").length;
-                $(".to_eagle", element).each((i,e)=>{
-                    if(e.checked){
-                        addToDownloadList(e.parentElement.nextElementSibling.href).then(()=>{
-                            if(--count === 0){
-                                downloadList();
-                            }
-                        });
-                        e.checked = false;
-                    }
-                    else if(--count === 0){
-                        downloadList();
-                    }
-                });
-                button3.style.color = "rgb(0 150 250 / 70%)";
-            });
+            let [button1, button2, button3] = createThreeButtons(element);
             $(BUTTON_SELECTOR, element).append(button1);
             $(BUTTON_SELECTOR, element).append(button2);
             $(BUTTON_SELECTOR, element).append(button3);
         }else{
             waitForKeyElements(PAGE_SELECTOR,(elem)=>{
-                elem.find(".iasfms-2.gGOhDf").append(addDownloadButton());
+                elem.find(DL_ILLUST_BUTTON).append(addDownloadButton());
             }, true);
         }
     }
 
     // 新收藏页面
     function bookmarksPage(element){
-        $(".sc-1dg0za1-0", element).text("下载/管理收藏")
+        $(".sc-1dg0za1-7", element).text("下载/管理收藏")
         function bookmarkAppendButton(){
             let button = document.createElement("div");
-            button.className = "sc-1ij5ui8-0 cBRwmk sc-13ywrd6-7 jDGNKo";
+            button.className = "sc-1ij5ui8-0 QihHO sc-13ywrd6-7 tPCje";
             button.setAttribute("aria-disabled", "false");
             button.setAttribute("role", "button");
-            button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 fRfnFc"><div class="sc-4a5gah-1 bxlGvy">下载</div></div>';
+            button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 fpbfUG"><div class="sc-4a5gah-1 kHyYuA">下载</div></div>';
             button.addEventListener("click", ()=>{
-                let count = $(BOOKMARKS_SELECT).length;
-                $(BOOKMARKS_SELECT).each((index, element)=>{
-                    let e = $(SELECT_CHECK, element)[0];
+                let count = $(BOOKMARK_SELECT).length;
+                $(BOOKMARK_SELECT).each((index, elem)=>{
+                    let e = $(SELECT_CHECK, elem)[0];
                     if(e.checked){
-                        addToDownloadList("https://www.pixiv.net" + $(SELECT_URL, element).attr("to")).then(()=>{
+                        addToDownloadList("https://www.pixiv.net" + $(SELECT_URL, elem).attr("to")).then(()=>{
                             if(--count === 0){
                                 downloadList();
                             }
@@ -326,9 +295,9 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
                 })
             });
             $(BDL_BUTTON_POS).append(button);
-            $("div[type=illust] .rp5asc-0:first").click();
-            $("div[type=illust] .rp5asc-0:first").click();
-            $(OVER_BUTTON).click(()=>{
+            $(PAGE_SELECTOR+":first").click();
+            $(PAGE_SELECTOR+":first").click();
+            $(OVER_BUTTON+":last").click(()=>{
                 waitForKeyElements(BOOKMARKS_BUTTON, bookmarksPage, true);
             });
         }
@@ -340,47 +309,13 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
     // 关注用户新作品页
     function newIllustPage(){
         if(useCheckbox){
-            let pos = document.createElement("ul");
-            pos.className = "menu-items";
-            let button1 = document.createElement("li");
-            button1.innerHTML = '<button style="color: #258fb8;padding: 10px;background: none;border: none;">全选</button>';
-            let button2 = document.createElement("li");
-            button2.innerHTML = '<button style="color: #258fb8;padding: 10px;background: none;border: none;">取消</button>';
-            let button3 = document.createElement("li");
-            button3.innerHTML = '<button style="color: #258fb8;padding: 10px;background: none;border: none;">下载</button>';
-            button1.addEventListener("click", ()=>{
-                $(".to_eagle").each((i,e)=>{
-                    e.checked = true;
-                });
-            });
-            button2.addEventListener("click", ()=>{
-                $(".to_eagle").each((i,e)=>{
-                    e.checked = false;
-                });
-            });
-            button3.addEventListener("click", ()=>{
-                let count = $(".to_eagle").length;
-                $(".to_eagle").each(async (i,e)=>{
-                    if(e.checked){
-                        addToDownloadList(e.parentElement.parentElement.firstElementChild.href).then(()=>{
-                            if(--count === 0){
-                                downloadList();
-                            }
-                        });
-                        e.checked = false;
-                    }
-                    else if(--count === 0){
-                        downloadList();
-                    }
-                });
-                $("button",button3).css("color", "black");
-            });
-            pos.appendChild(button1);
-            pos.appendChild(button2);
-            pos.appendChild(button3);
-            $(NEW_ILLUST_BUTTON).append(pos);
+            let element = $("section");
+            let [button1, button2, button3] = createThreeButtons(element);
+            $(NEW_ILLUST_BUTTON).append(button1);
+            $(NEW_ILLUST_BUTTON).append(button2);
+            $(NEW_ILLUST_BUTTON).append(button3);
         }
-        $(NEW_ILLUST_SELECTOR).each((index, elem)=>{
+        $(PAGE_SELECTOR).each((index, elem)=>{
             if(useCheckbox){
                 elem.parentElement.append(createCheckbox());
             }else{
@@ -394,15 +329,14 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
         if(document.URL.search("content=ugoira") !== -1){
             return;
         }
-        // 部分代码和关注用户新作品页相同
         let pos = document.createElement("ul");
         pos.className = "menu-items";
         let button1 = document.createElement("li");
-        button1.innerHTML = '<button style="cursor: pointer;color: #258fb8;padding: 10px;background: none;border: none;">全选</button>';
+        button1.innerHTML = '<a style="cursor: pointer;color: #258fb8;padding: 10px;background: none;border: none;">全选</a>';
         let button2 = document.createElement("li");
-        button2.innerHTML = '<button style="cursor: pointer;color: #258fb8;padding: 10px;background: none;border: none;">取消</button>';
+        button2.innerHTML = '<a style="cursor: pointer;color: #258fb8;padding: 10px;background: none;border: none;">取消</a>';
         let button3 = document.createElement("li");
-        button3.innerHTML = '<button style="cursor: pointer;color: #258fb8;padding: 10px;background: none;border: none;">下载</button>';
+        button3.innerHTML = '<a style="cursor: pointer;color: #258fb8;padding: 10px;background: none;border: none;">下载</a>';
         button1.addEventListener("click", ()=>{
             $(".to_eagle").each((i,e)=>{
                 e.checked = true;
@@ -433,7 +367,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
         pos.appendChild(button1);
         pos.appendChild(button2);
         pos.appendChild(button3);
-        $(NEW_ILLUST_BUTTON)[0].append(pos);
+        $(RANK_PAGE_BUTTON)[0].append(pos);
     }
 
     // 图片详情页
@@ -490,7 +424,6 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
             run_mode = "manga";
             function getImagesData(){
                 let images = $(PIC_SRC);
-                images = images.length === 0 ? $(PICS_SRC) : images;
                 if(images.length === 0){
                     alert("下载失败！");
                     return [null, null];
@@ -557,6 +490,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
             });
             let added = false;
             function changeButton(){
+                console.log("changed")
                 if(added) return;
                 added = true;
                 $("span",button)[0].innerText = "下载全部";
@@ -673,7 +607,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
                         if(searchDirId === ""){
                             searchDirId = folder.id;
                         }
-                        console.log(searchDirId);
+                        // console.log(searchDirId);
                         dlFolder = searchFolder(folder.children, author, pid);
                     }
                     else{
@@ -797,12 +731,12 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
         if(saveTags){
             $(TAG_SELECTOR).each((index,elem)=>{
                 $("a", elem).each((i,tag)=>{
-                    tags.push(tag.textContent);
+                    if(tag.textContent) tags.push(tag.textContent);
                 })
             })
         }
         let author = $(AUTHOR).text();
-        let id = $(AUTHOR_ID).attr("href").match(/\d+/)[0];
+        let id = $(AUTHOR).attr("data-gtm-value");
         // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
         let test = author.match(patt);
         if(test && test.length === 1){
@@ -828,6 +762,44 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
         return button;
     }
 
+    // 创建全选、取消、下载三个按键
+    function createThreeButtons(element){
+        let button1 = createCommonButton("全选");
+        let button2 = createCommonButton("取消");
+        let button3 = createCommonButton("下载");
+        button1.className = "button_to_eagle";
+        button2.className = "button_to_eagle";
+        button3.className = "button_to_eagle";
+        button1.addEventListener("click", ()=>{
+            $(".to_eagle", element).each((i,e)=>{
+                e.checked = true;
+            });
+        });
+        button2.addEventListener("click", ()=>{
+            $(".to_eagle", element).each((i,e)=>{
+                e.checked = false;
+            });
+        });
+        button3.addEventListener("click", ()=>{
+            let count = $(".to_eagle", element).length;
+            $(".to_eagle", element).each((i,e)=>{
+                if(e.checked){
+                    addToDownloadList(e.parentElement.nextElementSibling.href).then(()=>{
+                        if(--count === 0){
+                            downloadList();
+                        }
+                    });
+                    e.checked = false;
+                }
+                else if(--count === 0){
+                    downloadList();
+                }
+            });
+            button3.style.color = "rgb(0 150 250 / 70%)";
+        });
+        return [button1, button2, button3]
+    }
+
     // 创建选择框
     function createCheckbox(){
         let input_container = document.createElement("div");
@@ -844,6 +816,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
         return input_container;
     };
 
+    // 创建每张图片上的下载图标
     function addDownloadButton(){
         let pos = document.createElement("div");
         pos.style.zIndex = 3;
@@ -856,15 +829,16 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
         button.style.border = "none";
         button.innerHTML = '<svg viewBox="0 0 120 120" style="width: 22px;height: 22px;stroke: white;fill: none;stroke-width: 10;"><polyline style="stroke: black; stroke-width: 15;" points="60,102 60,8"></polyline><polyline style="stroke: black; stroke-width: 15;" points="10,55 60,105 110,55"></polyline><polyline points="60,100 60,10"></polyline><polyline points="12,57 60,105 108,57"></polyline></svg>';
         button.addEventListener("click", ()=>{
-            getImagePage(pos.parentElement.previousSibling.href).then(async ([data, author, pid])=>{
-                let dlFolderId = await getFolderId(author, pid);
+            getImagePage(pos.parentElement.previousSibling.href).then(async (data /** item, author, authorId **/)=>{
+                console.log(data)
+                let dlFolderId = await getFolderId(data.author, data.authorId);
                 if(dlFolderId === undefined){
                     console.log("创建文件夹失败！尝试直接下载……")
                 }
                 else{
-                    data.folderId = dlFolderId;
+                    data.item.folderId = dlFolderId;
                 }
-                download(data);
+                download(data.item);
                 $("svg", button)[0].style.stroke = "gray";
             });
         });
@@ -924,6 +898,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
         });
     }
 
+    // 为确保不反复创建文件夹，先将所有待下载数据保存到列表
     async function addToDownloadList(url){
         let data /* {data, author, authorId} */ = await getImagePage(url);
         getFolderId(data.author, data.authorId);
@@ -978,7 +953,7 @@ function updateConfig(){
         patt = new RegExp(patt_input.value);
         searchDirName = searchDirName_input.value;
         searchDirId = searchDirId_input.value;
-        GM_setValue("patt", patt);
+        GM_setValue("patt", patt.source);
         GM_setValue("saveTags", saveTags);
         GM_setValue("tagAuthor", tagAuthor);
         GM_setValue("addToFavor", addToFavor);
