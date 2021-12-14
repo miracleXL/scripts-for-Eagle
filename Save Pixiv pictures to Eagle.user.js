@@ -9,7 +9,7 @@
 // @namespace               https://github.com/miracleXL
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.5.7
+// @version                 0.5.8
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -23,8 +23,7 @@
 // @require                 https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
 // ==/UserScript==
 
-// 修复pixiv网页改动导致所有页面均无法下载的问题。删去了排行榜页每张图添加下载按键的设置方法。
-// 修复了存储设置项中的正则保存错误。
+// 修复一处显示错误和夜间模式带来的一些显示问题
 
 // 更新设置项
 // 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
@@ -49,6 +48,7 @@ var useCheckbox = GM_getValue("useCheckbox", USE_CHECK_BOX);
 // 尝试避免正则保存错误带来的后果
 if(patt.source === "[object Object]"){
     patt = new RegExp(PATT);
+    GM_setValue("patt", patt.source);
 }
 
 // Eagle支持不同功能的版本号
@@ -57,6 +57,7 @@ const create_child_folder = 20210806; // 支持创建子文件夹的版本build�
 
 // 各种页面元素JQuery选择器
 const PAGE_SELECTOR = "div[type=illust] .sc-rp5asc-0"; // Pixiv首页及用户页图片选择器
+const NIGHT_MODE = "#gtm-var-theme-kind" // 夜间模式
 const BUTTON_SELECTOR = ".sc-7zddlj-1"; // 使用添加选择框的方式时的下载按钮位置
 const NEW_ILLUST_BUTTON = ".sc-192ftwf-0"; // 新作品页按键位置
 const RANK_PAGE_BUTTON = "nav.column-menu"; // 排行榜按键位置
@@ -94,16 +95,17 @@ const EAGLE_UPDATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/update`;
 const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 
 
+// 全局变量
+var folders = [];
+var folders_need_create = []; // {author, pid}
+var download_list = []; // {data, author, authorId}
+var build_ver = ""; // Eagle build version
+var run_mode = "else"; // "else" || "image" || "manga" || "ugoira" 
+var dark_mode = $(NIGHT_MODE).textContent === "dark";
+
 (function(){
     'use strict';
 
-    // 全局变量
-    var folders = [];
-    var folders_need_create = []; // {author, pid}
-    var download_list = []; // {data, author, authorId}
-    var build_ver = ""; // Eagle build version
-    var run_mode = "else"; // "else" || "image" || "manga" || "ugoira" 
-    // 更新全局变量默认值
     // 获取应用版本
     GM_xmlhttpRequest({
         url: EAGLE_APP_INFO_URL,
@@ -277,7 +279,13 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
             button.className = "sc-1ij5ui8-0 QihHO sc-13ywrd6-7 tPCje";
             button.setAttribute("aria-disabled", "false");
             button.setAttribute("role", "button");
-            button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 fpbfUG"><div class="sc-4a5gah-1 kHyYuA">下载</div></div>';
+            dark_mode = $(NIGHT_MODE).text() === "dark";
+            if(dark_mode){
+                button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 jYJMLW"><div class="sc-4a5gah-1 kHyYuA">下载</div></div>';
+            }
+            else{
+                button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 fSJJrU"><div class="sc-4a5gah-1 kHyYuA">下载</div></div>';
+            }
             button.addEventListener("click", ()=>{
                 let count = $(BOOKMARK_SELECT).length;
                 $(BOOKMARK_SELECT).each((index, elem)=>{
@@ -961,6 +969,7 @@ function updateConfig(){
         GM_setValue("searchDirName", searchDirName);
         GM_setValue("searchDirId", searchDirId);
         GM_setValue("useCheckbox", useCheckbox);
+        div.remove();
     });
     button_cancel.addEventListener("click",()=>{
         div.remove();
@@ -972,7 +981,8 @@ function updateConfig(){
     div.style.top = "10%";
     div.style.left = "10%";
     div.style.padding = "15px";
-    div.style.background = "white";
+    dark_mode = $(NIGHT_MODE).text() === "dark";
+    div.style.background = dark_mode ? "black" : "white";
     document.body.appendChild(div);
 }
 
