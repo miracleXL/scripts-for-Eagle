@@ -9,7 +9,7 @@
 // @namespace               https://github.com/miracleXL
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.5.8
+// @version                 0.5.9
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -23,7 +23,7 @@
 // @require                 https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
 // ==/UserScript==
 
-// 修复一处显示错误和夜间模式带来的一些显示问题
+// 更新内容：增加收藏内下载多P的选项
 
 // 更新设置项
 // 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
@@ -31,6 +31,7 @@ const PATT = / *[@＠◆■◇☆⭐️🌟🦇💎🔞🍅🌱🐻🍬：:\\\/]
 const SAVE_TAGS = true; // 是否保存标签
 const TAG_AUTHOR = true; // 是否将作者名加入标签
 const ADD_TO_FAVOR = true; // 下载时是否同时加入收藏
+const DL_Multiple = true; // 通过缩略图下载时，下载多P
 const SEARCH_DIR_NAME = ""; // 在需要创建新文件夹时，新建文件夹的父文件夹名，在引号内输入文件夹名。留空则直接创建
 const SEARCH_DIR_ID = ""; // 一般无需填写，上一行所指定文件夹的id（eagle中选中文件夹右键复制链接，获得如‘eagle://folder/K4130PELEY5W9’字符串，文件夹id就是其中K4130PELEY5W9部分）。填写会忽略上一行设置，可用来设置新建文件夹创建到某个子文件夹中。
 const USE_CHECK_BOX = true; // 为true时在每一张图上添加复选框代替下载键，此时下载键将移至图片所在区域上方标题处
@@ -41,6 +42,7 @@ var patt = new RegExp(GM_getValue("patt", PATT.source));
 var saveTags = GM_getValue("saveTags", SAVE_TAGS);
 var tagAuthor = GM_getValue("tagAuthor", TAG_AUTHOR);
 var addToFavor = GM_getValue("addToFavor", ADD_TO_FAVOR);
+var DLMultiple = GM_getValue("DLMultiple", DL_Multiple);
 var searchDirName = GM_getValue("searchDirName", SEARCH_DIR_NAME);
 var searchDirId = GM_getValue("searchDirId", SEARCH_DIR_ID);
 var useCheckbox = GM_getValue("useCheckbox", USE_CHECK_BOX);
@@ -181,6 +183,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
     }
 
     async function downloadList(){
+        console.log(download_list);
         console.log(`需要创建文件夹：${folders_need_create.length}`)
         for(let folder of folders_need_create){
             console.log(folder);
@@ -188,7 +191,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
         }
         console.log("文件夹创建完成！开始下载");
         for(let data of download_list){
-            console.log(data);
+            // console.log(data); /* {data|item, author, authorId} */
             getFolderId(data.author, data.authorId).then((dlFolderId)=>{
                 if(dlFolderId === undefined){
                     console.log("创建文件夹失败！尝试直接下载……")
@@ -271,7 +274,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
         }
     }
 
-    // 新收藏页面
+    // 收藏页面
     function bookmarksPage(element){
         $(".sc-1dg0za1-7", element).text("下载/管理收藏")
         function bookmarkAppendButton(){
@@ -291,7 +294,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                 $(BOOKMARK_SELECT).each((index, elem)=>{
                     let e = $(SELECT_CHECK, elem)[0];
                     if(e.checked){
-                        addToDownloadList("https://www.pixiv.net" + $(SELECT_URL, elem).attr("to")).then(()=>{
+                        addToDownloadList("https://www.pixiv.net" + $(SELECT_URL, elem).attr("to"), DLMultiple).then(()=>{
                             if(--count === 0){
                                 downloadList();
                             }
@@ -907,11 +910,89 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
         });
     }
 
+    // 获取新页面并返回所有图片信息
+    function getImagesPage(url){
+        return new Promise((resolve, reject)=>{
+            $.ajax({
+                type: "GET",
+                url: url,
+                dataType: "html",
+                success: async (data)=>{
+                    try{
+                        let items = [];
+                        let html = $(data);
+                        let preloadData = html.filter("#meta-preload-data")[0];
+                        let illust = JSON.parse(preloadData.content)["illust"];
+                        let id = Object.keys(illust)[0];
+                        let illustData = illust[id];
+                        let item = {
+                            "website": url,
+                            "tags": [],
+                            "headers": HEADERS
+                        };
+                        item.url = illustData.urls.original;
+                        item.name = illustData.title;
+                        item.annotation = illustData.description;
+                        for(let tag of illustData.tags.tags){
+                            item.tags.push(tag.tag);
+                            if(tag.translation){
+                                for(let trans of Object.values(tag.translation)){
+                                    item.tags.push(trans);
+                                }
+                            }
+                        }
+                        let author = illustData.userName || illustData.userAccount;
+                        let authorId = illustData.userId;
+                        let test = author.match(patt);
+                        if(test && test.length === 1){
+                            author = author.replace(test[0],"");
+                        }
+                        if(tagAuthor){
+                            item.tags.push(author);
+                        }
+                        if(!authorId){
+                            console.log("获取用户id失败！")
+                            console.log(illustData);
+                        }
+                        items.push({item, author, authorId});
+                        let url0 = item.url.replace(/0\.[a-z]+/, "");
+                        let suffix = item.url.match(/(?<=0)\.[a-z]+/);
+                        for(let i = 1; i < illustData.pageCount; i++){
+                            let item = {
+                                "website": items[0].item.website,
+                                "url": url0 + i + suffix,
+                                "name": items[0].item.name,
+                                "annotation": items[0].item.annotation,
+                                "tags": items[0].item.tags,
+                                "headers": items[0].item.headers
+                            };
+                            items.push({item, author, authorId});
+                        }
+                        resolve(items);
+                    }
+                    catch(e){
+                        reject(e);
+                    }
+                }
+            });
+        });
+    }
+
+
     // 为确保不反复创建文件夹，先将所有待下载数据保存到列表
-    async function addToDownloadList(url){
-        let data /* {data, author, authorId} */ = await getImagePage(url);
-        getFolderId(data.author, data.authorId);
-        download_list.push(data);
+    async function addToDownloadList(url, allPage = false){
+        let data /* {data, author, authorId} */;
+        if (allPage){
+            data = await getImagesPage(url);
+            getFolderId(data[0].author, data[0].authorId);
+            // console.log(data);
+            download_list.push(...data);
+        }
+        else{
+            data = await getImagePage(url);
+            getFolderId(data.author, data.authorId);
+            download_list.push(data);
+        }
     }
 })();
 
@@ -944,6 +1025,7 @@ function updateConfig(){
     let tagAuthor_input = createNewConfig("是否将作者名加入标签", "checkbox", tagAuthor);
     let addToFavor_input = createNewConfig("下载时是否同时加入收藏", "checkbox", addToFavor);
     let useCheckbox_input = createNewConfig("使用复选框，而不是每张图添加下载按键", "checkbox", useCheckbox);
+    let DLMultiple_input = createNewConfig("在收藏夹内下载时，下载多P", "checkbox", DLMultiple);
     // 文本
     let patt_input = createNewConfig("正则表达式，处理作者名多余后缀：", "text", patt.source);
     let searchDirName_input = createNewConfig("父文件夹名：\n（在需要创建新文件夹时，新建文件夹的父文件夹名，在引号内输入文件夹名。留空则直接创建）", "text", searchDirName);
@@ -959,6 +1041,7 @@ function updateConfig(){
         tagAuthor = tagAuthor_input.checked;
         addToFavor = addToFavor_input.checked;
         useCheckbox = useCheckbox_input.checked;
+        DLMultiple = DLMultiple_input.checked;
         patt = new RegExp(patt_input.value);
         searchDirName = searchDirName_input.value;
         searchDirId = searchDirId_input.value;
@@ -969,6 +1052,7 @@ function updateConfig(){
         GM_setValue("searchDirName", searchDirName);
         GM_setValue("searchDirId", searchDirId);
         GM_setValue("useCheckbox", useCheckbox);
+        GM_setValue("DLMultiple", DLMultiple);
         div.remove();
     });
     button_cancel.addEventListener("click",()=>{
