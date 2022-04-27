@@ -9,7 +9,7 @@
 // @namespace               https://github.com/miracleXL
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.5.9
+// @version                 0.5.10
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -23,7 +23,7 @@
 // @require                 https://greasyfork.org/scripts/2199-waitforkeyelements/code/waitForKeyElements.js?version=6349
 // ==/UserScript==
 
-// 更新内容：增加收藏内下载多P的选项
+// 更新内容：修复收藏页的下载按键样式
 
 // 更新设置项
 // 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
@@ -284,10 +284,10 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             button.setAttribute("role", "button");
             dark_mode = $(NIGHT_MODE).text() === "dark";
             if(dark_mode){
-                button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 jYJMLW"><div class="sc-4a5gah-1 kHyYuA">下载</div></div>';
+                button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 hCTOkT"><div class="sc-4a5gah-1 kHyYuA">下载</div></div>';
             }
             else{
-                button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 fSJJrU"><div class="sc-4a5gah-1 kHyYuA">下载</div></div>';
+                button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 bmIdgb"><div class="sc-4a5gah-1 kHyYuA">下载</div></div>';
             }
             button.addEventListener("click", ()=>{
                 let count = $(BOOKMARK_SELECT).length;
