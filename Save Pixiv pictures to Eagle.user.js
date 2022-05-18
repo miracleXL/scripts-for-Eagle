@@ -10,7 +10,7 @@
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @updateURL               https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.5.11
+// @version                 0.5.12
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -23,7 +23,7 @@
 // @require                 https://code.jquery.com/jquery-3.5.1.min.js
 // ==/UserScript==
 
-// 更新内容：修复引用脚本链接被删除导致本脚本失效的问题
+// 更新内容：修复引用脚本链接被删除导致本脚本失效的问题，修复收藏页中存在已被删除的插画时无法下载的问题
 
 // 更新设置项
 // 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
@@ -293,7 +293,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                 let count = $(BOOKMARK_SELECT).length;
                 $(BOOKMARK_SELECT).each((index, elem)=>{
                     let e = $(SELECT_CHECK, elem)[0];
-                    if(e.checked){
+                    if(e && e.checked){
                         addToDownloadList("https://www.pixiv.net" + $(SELECT_URL, elem).attr("to"), DLMultiple).then(()=>{
                             if(--count === 0){
                                 downloadList();
