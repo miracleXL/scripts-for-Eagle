@@ -3,14 +3,14 @@
 // @name:zh                 下载Pixiv图片到Eagle
 // @name:zh-CN              下载Pixiv图片到Eagle
 // @description             Collect pictures in pixiv to eagle.
-// @description:zh-CN       可通过油猴插件提供的按键修改部分功能设置。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、排行榜、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
-// @description:zh          可通过油猴插件提供的按键修改部分功能设置。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、排行榜、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中
+// @description:zh-CN       可通过油猴插件提供的按键修改部分功能设置。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、排行榜、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中。可批量下载全部作品和收藏。
+// @description:zh          可通过油猴插件提供的按键修改部分功能设置。在Pixiv上添加可以导入图片到Eagle的下载按钮，默认保存所有标签以及标签翻译，以创作者名创建文件夹保存，能力有限暂无法处理动图。首页、排行榜、关注用户新作品页、收藏页添加下载按钮，添加复选框。自动将用户id添加进文件夹注释，同名文件夹注释中不存在id则更新注释添加id，尽量避免添加进同名不同id文件夹中。可批量下载全部作品和收藏。
 
 // @namespace               https://github.com/miracleXL/scripts-for-Eagle
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @updateURL               https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.5.12
+// @version                 0.6.0
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -23,7 +23,10 @@
 // @require                 https://code.jquery.com/jquery-3.5.1.min.js
 // ==/UserScript==
 
-// 更新内容：修复引用脚本链接被删除导致本脚本失效的问题，修复收藏页中存在已被删除的插画时无法下载的问题
+// 更新内容：
+// 修复：若先打开网页，后启动eagle，会导致未能及时获取软件信息带来的一系列问题；
+// 新增：批量下载画师全部作品的功能（有bug待测试）；批量下载收藏（同左）
+// 代码：整理了主函数逻辑；修改了下载列表的数据结构；修改了引用代码，增加了同时找到多个元素时仅回调一次的功能
 
 // 更新设置项
 // 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
@@ -64,6 +67,9 @@ const BUTTON_SELECTOR = ".sc-7zddlj-1"; // 使用添加选择框的方式时的�
 const NEW_ILLUST_BUTTON = ".sc-192ftwf-0"; // 新作品页按键位置
 const RANK_PAGE_BUTTON = "nav.column-menu"; // 排行榜按键位置
 const DL_ILLUST_BUTTON = ".sc-iasfms-2"; // 不使用复选框时，下载单张图片的按键位置
+const SHOW_ALL = "a.sc-d98f2c-0.sc-s46o24-1" // 用户页面显示全部图片的按键位置
+const NEXT_PAGE = ".kKBslM" // 用户artwork页面翻页按键位置
+
 // 收藏页
 const BOOKMARKS_BUTTON = "div.sc-1u8zqt7-0"; // 管理收藏按键
 const BDL_BUTTON_POS = "div.sc-13ywrd6-4"; // 管理收藏中下载按键位置
@@ -71,6 +77,7 @@ const OVER_BUTTON = ".sc-1ij5ui8-0"; // 管理收藏结束按键
 const BOOKMARK_SELECT = "div[type=illust]"; // 管理收藏页图片选择器
 const SELECT_URL = "span:first";
 const SELECT_CHECK = "input.sc-8ggyxi-4";
+
 // 作品详细页面
 const BUTTON_POS = ".sc-181ts2x-0"; // 下载按键位置
 const PIC_SRC = ".sc-1qpw8k9-3"; // 图片位置
@@ -100,7 +107,7 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 // 全局变量
 var folders = [];
 var folders_need_create = []; // {author, pid}
-var download_list = []; // {data, author, authorId}
+var download_list = {}; // {url: {data, author, authorId}}
 var build_ver = ""; // Eagle build version
 var run_mode = "else"; // "else" || "image" || "manga" || "ugoira" 
 var dark_mode = $(NIGHT_MODE).textContent === "dark";
@@ -108,38 +115,41 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
 (function(){
     'use strict';
 
-    // 获取应用版本
-    GM_xmlhttpRequest({
-        url: EAGLE_APP_INFO_URL,
-        method: "GET",
-        onload: function(response) {
-            if(response.statusText !== "OK"){
-                console.log(`请检查eagle是否打开！`);
-                console.log(response);
-                alert("下载失败！")
-            }
-            else{
-                build_ver = JSON.parse(response.response).data.buildVersion;
-            }
-        }
-    });
-    // 获取文件夹列表
-    GM_xmlhttpRequest({
-        url: EAGLE_GET_FOLDERS_API_URL,
-        method: "GET",
-        redirect:'follow',
-        onload: function(response) {
-            if(response.status !== 200){
-                alert(`请检查eagle是否打开！`);
-                reject();
-            }
-            folders = JSON.parse(response.response).data;
-        }
-    });
-
     if (location.href.indexOf("pixiv.net") === -1) {
         console.log("This script only works on pixiv.net.");
         return;
+    }
+
+    function checkEagleStatus(){
+        if (build_ver != "") return;
+        // 获取应用版本
+        GM_xmlhttpRequest({
+            url: EAGLE_APP_INFO_URL,
+            method: "GET",
+            onload: function(response) {
+                if(response.statusText !== "OK"){
+                    console.log(`请检查eagle是否打开！`);
+                    console.log(response);
+                    alert("下载失败！")
+                }
+                else{
+                    build_ver = JSON.parse(response.response).data.buildVersion;
+                }
+            }
+        });
+        // 获取文件夹列表
+        GM_xmlhttpRequest({
+            url: EAGLE_GET_FOLDERS_API_URL,
+            method: "GET",
+            redirect:'follow',
+            onload: function(response) {
+                if(response.status !== 200){
+                    alert(`请检查eagle是否打开！`);
+                    reject();
+                }
+                folders = JSON.parse(response.response).data;
+            }
+        });
     }
 
     // 侦听URL是否发生变化，代码来自 https://blog.csdn.net/liubangbo/article/details/103272393
@@ -152,7 +162,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             window.dispatchEvent(e);
             return rv;
         };
-        };
+    };
     history.pushState = _wr('pushState');
     history.replaceState = _wr('replaceState')
     window.addEventListener('replaceState', function(e) {
@@ -163,6 +173,45 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
     });
 
     main();
+
+    var waitingForRun; // URL发生变化时，在新页面调用的函数
+
+    function main(){
+        if (waitingForRun){
+            waitingForRun();
+            waitingForRun = undefined;
+        }
+        // 先处理还未完成改版的旧页面和一些特殊情况
+        if(document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
+            // 关注用户新作品
+            waitForKeyElements(NEW_ILLUST_BUTTON, newIllustPage, true);
+        }
+        else if(document.URL.startsWith("https://www.pixiv.net/ranking.php")){
+            // 排行榜
+            waitForKeyElements(".ranking-image-item", (element)=>{
+                element.before(createCheckbox());
+            }, false);
+            rankingPage();
+        }
+        else if (document.URL.startsWith("https://www.pixiv.net/users/")){
+            // 用户主页通用
+            waitForKeyElements(BUTTON_SELECTOR, userPage, true, undefined, true);
+            // // 收藏页面
+            // if(document.URL.search("bookmarks") !== -1){
+            //     waitForKeyElements(BOOKMARKS_BUTTON, bookmarksPage, true);
+            // }
+        }
+
+        // 新版页面
+        waitForKeyElements(BUTTON_POS, setMode, false); // artwork/** 图片详情页面
+        waitForKeyElements("section", newPageCommon, false); // 通用样式
+        if(useCheckbox){
+            // 为所有图片添加复选框，但是不一定有对应的下载按键
+            waitForKeyElements(PAGE_SELECTOR, (elem)=>{
+                elem.prepend(createCheckbox());
+            }, false);
+        }
+    }
 
     function download(data){
         // console.log(data);
@@ -183,28 +232,34 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
     }
 
     async function downloadList(){
-        console.log(download_list);
+        if (build_ver === ""){
+            alert(`请检查eagle是否打开！`);
+            return;
+        }
+        // return console.log(download_list);
         console.log(`需要创建文件夹：${folders_need_create.length}`)
         for(let folder of folders_need_create){
             console.log(folder);
             await creatFolder(folder.author, folder.pid);
         }
         console.log("文件夹创建完成！开始下载");
-        for(let data of download_list){
-            // console.log(data); /* {data|item, author, authorId} */
-            getFolderId(data.author, data.authorId).then((dlFolderId)=>{
-                if(dlFolderId === undefined){
-                    console.log("创建文件夹失败！尝试直接下载……")
-                }
-                else{
-                    data.item.folderId = dlFolderId;
-                }
-                download(data.item);
-                download_list = [];
-                folders_need_create = [];
-            });
+        for(let url in download_list){
+            for (let data of download_list[url]){
+                // console.log(data); /* {data|item, author, authorId} */
+                getFolderId(data.author, data.authorId).then((dlFolderId)=>{
+                    if(dlFolderId === undefined){
+                        console.log("创建文件夹失败！尝试直接下载……")
+                    }
+                    else{
+                        data.item.folderId = dlFolderId;
+                    }
+                    download(data.item);
+                });
+            }
         }
-    };
+        download_list = {};
+        folders_need_create = [];
+    }
 
     function downloadAll(data){
         // console.log(data);
@@ -221,43 +276,6 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                 }
             }
         });
-    }
-
-    function main(){
-        // 处理还未完成改版的旧页面和一些特殊情况
-        if(router()){
-            return;
-        }
-        // 新版页面
-        waitForKeyElements(BUTTON_POS, setMode, false); // artwork/** 图片详情页面
-        waitForKeyElements("section", newPageCommon, false); // 通用样式
-        if(useCheckbox){
-            // 为所有图片添加复选框，但是不一定有对应的下载按键
-            waitForKeyElements(PAGE_SELECTOR, (elem)=>{
-                elem.prepend(createCheckbox());
-            }, false);
-        }
-    }
-
-    // 处理一些还未完成改造的旧页面或特殊情况
-    function router(){
-        // 关注用户新作品
-        if(document.URL.startsWith("https://www.pixiv.net/bookmark_new_illust.php")){
-            waitForKeyElements(NEW_ILLUST_BUTTON, newIllustPage, true);
-            return false;
-        }
-        else if(document.URL.search("bookmarks") !== -1){ // 收藏页面
-            waitForKeyElements(BOOKMARKS_BUTTON, bookmarksPage, true);
-            return true;
-        }
-        else if(document.URL.startsWith("https://www.pixiv.net/ranking.php")){
-            waitForKeyElements(".ranking-image-item", (element)=>{
-                element.before(createCheckbox());
-            }, false);
-            rankingPage();
-            return false;
-        }
-        return false;
     }
 
     // 网站改版后页面通用样式
@@ -290,6 +308,9 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                 button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 bmIdgb"><div class="sc-4a5gah-1 kHyYuA">下载</div></div>';
             }
             button.addEventListener("click", ()=>{
+                if (build_ver === ""){
+                    checkEagleStatus();
+                }
                 let count = $(BOOKMARK_SELECT).length;
                 $(BOOKMARK_SELECT).each((index, elem)=>{
                     let e = $(SELECT_CHECK, elem)[0];
@@ -336,6 +357,91 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
         })
     }
 
+    // 用户作品页
+    function userPage(){
+        // userId = document.URL.split("/")[4];
+        let page = document.URL.split("/")[5]?.split("?")[0];
+        let pageCount = document.URL.split("=")[1];
+        let button;
+        if (page === "request" || page === "artworks"){
+            button = createCommonButton("下载全部作品");
+        }
+        else if (page === "illustrations"){
+            button = createCommonButton("下载全部插画");
+        }
+        else if (page === "manga"){
+            button = createCommonButton("下载全部漫画");
+        }
+        else if (page === "bookmarks"){
+            button = createCommonButton("下载全部作品");
+            waitForKeyElements(BOOKMARKS_BUTTON, bookmarksPage, true);
+            waitForKeyElements(".button_to_eagle", (e)=>{e.css("display", "none")}, true);
+            waitForKeyElements(".to_eagle", (e)=>{e.parent().css("display", "none")}, true);
+        }
+        else{
+            // console.log("error:", page)
+            return;
+        }
+        let section = $("section")[0];
+        function waitForPageLoaded(lastFirst){
+            let timeControl = setInterval(()=>{
+                let tmp = $(".to_eagle");
+                let nextpage = $(NEXT_PAGE)[1];
+                if ((tmp.length == 48 || (nextpage.hidden && tmp.length > 0)) && tmp[0] != lastFirst){
+                    addAllArtToList(tmp);
+                    clearInterval(timeControl);
+                }
+            }, 500);
+        }
+        function addAllArtToList(elements){
+            // let count = $(".to_eagle", section).length;
+            let count = elements.length;
+            console.log("从", document.URL,"获取到", count, "个作品链接");
+            // if (count < 48){
+            //     console.log("当前页面疑似未能加载完成，请之后手动下载……");
+            // }
+            // $(".to_eagle").each((i,e)=>{
+            elements.each((i,e)=>{
+                // return console.log(e.parentElement.nextElementSibling.href);
+                addToDownloadList(e.parentElement.nextElementSibling.href, true).then(()=>{
+                    if(--count === 0){
+                        let nextpage = $(NEXT_PAGE)[1];
+                        if (nextpage.hidden){
+                            console.log("当前筛选条件共有", $("span", $(BUTTON_SELECTOR)).text(), "个目标，实际获取到", Object.keys(download_list).length, "个");
+                            // return console.log(download_list)
+                            downloadList();
+                        }
+                        else{
+                            nextpage.click();
+                            // waitForKeyElements(".to_eagle", addAllArtToList, true, undefined, true);
+                            waitForPageLoaded(elements[0]);
+                        }
+                    }
+                });
+            });
+        }
+        button.addEventListener("click", ()=>{
+            if (build_ver == ""){
+                checkEagleStatus();
+            }
+            if (!confirm("该操作将下载当前筛选结果中的全部内容，下载过程中会自动翻页，确认继续？")) return;
+            if (page === undefined){
+                // $(".to_eagle", section).data ('alreadyFound', true);
+                $(SHOW_ALL)[0].click();
+                // waitingForRun = ()=>{button.click()};
+                // return;
+            }
+            else if(pageCount && pageCount != "1"){
+                // $(".to_eagle").data ('alreadyFound', true);
+                $(".kHhIF")[0].click();
+            }
+            // waitForKeyElements(".to_eagle", addAllArtToList, true, undefined, true);
+            waitForPageLoaded();
+            button.style.color = "rgb(0 150 250 / 70%)";
+        });
+        $(BUTTON_SELECTOR, section).append(button);
+    }
+
     // 排行榜
     function rankingPage(){
         if(document.URL.search("content=ugoira") !== -1){
@@ -360,6 +466,9 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             });
         });
         button3.addEventListener("click", ()=>{
+            if (build_ver === ""){
+                checkEagleStatus();
+            }
             let count = $(".to_eagle").length;
             $(".to_eagle").each(async (i,e)=>{
                 if(e.checked){
@@ -411,6 +520,9 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             let button = createNormalButton("下载");
             pos[0].appendChild(button);
             button.addEventListener("click", async function(){
+                if (build_ver === ""){
+                    checkEagleStatus();
+                }
                 //下载同时自动点赞+收藏
                 if(addToFavor){
                     try{
@@ -482,6 +594,9 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             pos[0].appendChild(button);
             //绑定点击按钮时下载事件
             button.addEventListener("click", async () => {
+                if (build_ver === ""){
+                    checkEagleStatus();
+                }
                 //下载同时自动点赞+收藏
                 if(addToFavor){
                     try{
@@ -675,6 +790,9 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
 
     // 创建文件夹
     function creatFolder(folderName, pid){
+        if (build_ver == ""){
+            checkEagleStatus();
+        }
         return new Promise((resolve, reject) => {
             if(searchDirId === ""){
                 searchDirId = undefined;
@@ -699,6 +817,8 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                         return resolve(result.data);
                     }
                     else{
+                        console.log(`请检查eagle是否打开！`);
+                        alert("文件夹创建失败！");
                         return reject();
                     }
                 }
@@ -793,6 +913,9 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             });
         });
         button3.addEventListener("click", ()=>{
+            if (build_ver == ""){
+                checkEagleStatus();
+            }
             let count = $(".to_eagle", element).length;
             $(".to_eagle", element).each((i,e)=>{
                 if(e.checked){
@@ -841,6 +964,9 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
         button.style.border = "none";
         button.innerHTML = '<svg viewBox="0 0 120 120" style="width: 22px;height: 22px;stroke: white;fill: none;stroke-width: 10;"><polyline style="stroke: black; stroke-width: 15;" points="60,102 60,8"></polyline><polyline style="stroke: black; stroke-width: 15;" points="10,55 60,105 110,55"></polyline><polyline points="60,100 60,10"></polyline><polyline points="12,57 60,105 108,57"></polyline></svg>';
         button.addEventListener("click", ()=>{
+            if (build_ver === ""){
+                checkEagleStatus();
+            }
             getImagePage(pos.parentElement.previousSibling.href).then(async (data /** item, author, authorId **/)=>{
                 console.log(data)
                 let dlFolderId = await getFolderId(data.author, data.authorId);
@@ -981,17 +1107,18 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
 
     // 为确保不反复创建文件夹，先将所有待下载数据保存到列表
     async function addToDownloadList(url, allPage = false){
-        let data /* {data, author, authorId} */;
+        if (url in download_list) return;
+        let data /* [{data, author, authorId}] */;
         if (allPage){
             data = await getImagesPage(url);
             getFolderId(data[0].author, data[0].authorId);
             // console.log(data);
-            download_list.push(...data);
+            download_list[url] = data;
         }
         else{
             data = await getImagePage(url);
             getFolderId(data.author, data.authorId);
-            download_list.push(data);
+            download_list[url] = [data];
         }
     }
 })();
@@ -999,6 +1126,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
 
 // @require                 https://gist.github.com/raw/2625891/waitForKeyElements.js
 // 因外部链接无法通过油猴检测，将源代码复制粘贴在这
+// 进行了修改，添加了参数bCallOnce，为true时仅在选择元素出现时，调用一次actionFunction，不再为每个元素分别调用，且不再传回任何参数
 /*--- waitForKeyElements():  A utility function, for Greasemonkey scripts,
     that detects and handles AJAXed content.
 
@@ -1017,20 +1145,21 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
     IMPORTANT: This function requires your script to have loaded jQuery.
 */
 function waitForKeyElements (
-    selectorTxt,    /* Required: The jQuery selector string that
-                        specifies the desired element(s).
-                    */
-    actionFunction, /* Required: The code to run when elements are
-                        found. It is passed a jNode to the matched
-                        element.
-                    */
-    bWaitOnce,      /* Optional: If false, will continue to scan for
-                        new elements even after the first match is
-                        found.
-                    */
-    iframeSelector  /* Optional: If set, identifies the iframe to
-                        search.
-                    */
+    selectorTxt,            /* Required: The jQuery selector string that
+                                specifies the desired element(s).
+                            */
+    actionFunction,         /* Required: The code to run when elements are
+                                found. It is passed a jNode to the matched
+                                element.
+                            */
+    bWaitOnce=false,        /* Optional: If false, will continue to scan for
+                                new elements even after the first match is
+                                found.
+                            */
+    iframeSelector=undefined,/* Optional: If set, identifies the iframe to
+                                search.
+                            */
+    bCallOnce=false         // 修改添加参数，
 ) {
     var targetNodes, btargetsFound;
 
@@ -1045,19 +1174,33 @@ function waitForKeyElements (
         /*--- Found target node(s).  Go through each and act if they
             are new.
         */
-        targetNodes.each ( function () {
-            var jThis        = $(this);
-            var alreadyFound = jThis.data ('alreadyFound')  ||  false;
+        if(bCallOnce){
+            var alreadyFound = targetNodes.data ('alreadyFound')  ||  false;
 
             if (!alreadyFound) {
                 //--- Call the payload function.
-                var cancelFound     = actionFunction (jThis);
+                var cancelFound     = actionFunction ();
                 if (cancelFound)
                     btargetsFound   = false;
                 else
-                    jThis.data ('alreadyFound', true);
+                    targetNodes.data ('alreadyFound', true);
             }
-        } );
+        }
+        else{
+            targetNodes.each ( function () {
+                var jThis        = $(this);
+                var alreadyFound = jThis.data ('alreadyFound')  ||  false;
+
+                if (!alreadyFound) {
+                    //--- Call the payload function.
+                    var cancelFound     = actionFunction (jThis);
+                    if (cancelFound)
+                        btargetsFound   = false;
+                    else
+                        jThis.data ('alreadyFound', true);
+                }
+            } );
+        }
     }
     else {
         btargetsFound   = false;
@@ -1081,10 +1224,11 @@ function waitForKeyElements (
                     waitForKeyElements (    selectorTxt,
                                             actionFunction,
                                             bWaitOnce,
-                                            iframeSelector
+                                            iframeSelector,
+                                            bCallOnce
                                         );
                 },
-                300
+                200
             );
             controlObj [controlKey] = timeControl;
         }
