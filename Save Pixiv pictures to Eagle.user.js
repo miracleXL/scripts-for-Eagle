@@ -10,7 +10,7 @@
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @updateURL               https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.6.0
+// @version                 0.6.1
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -387,7 +387,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             let timeControl = setInterval(()=>{
                 let tmp = $(".to_eagle");
                 let nextpage = $(NEXT_PAGE)[1];
-                if ((tmp.length == 48 || (nextpage.hidden && tmp.length > 0)) && tmp[0] != lastFirst){
+                if ((tmp.length == 48 || ((nextpage === undefined || nextpage.hidden) && tmp.length > 0)) && tmp[0] != lastFirst){
                     addAllArtToList(tmp);
                     clearInterval(timeControl);
                 }
