@@ -10,7 +10,7 @@
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @updateURL               https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.6.1
+// @version                 0.6.2
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -406,7 +406,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                 addToDownloadList(e.parentElement.nextElementSibling.href, true).then(()=>{
                     if(--count === 0){
                         let nextpage = $(NEXT_PAGE)[1];
-                        if (nextpage.hidden){
+                        if (nextpage === undefined || nextpage.hidden){
                             console.log("当前筛选条件共有", $("span", $(BUTTON_SELECTOR)).text(), "个目标，实际获取到", Object.keys(download_list).length, "个");
                             // return console.log(download_list)
                             downloadList();
