@@ -10,7 +10,7 @@
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @updateURL               https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.6.2
+// @version                 0.6.3
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -24,9 +24,7 @@
 // ==/UserScript==
 
 // 更新内容：
-// 修复：若先打开网页，后启动eagle，会导致未能及时获取软件信息带来的一系列问题；
-// 新增：批量下载画师全部作品的功能（有bug待测试）；批量下载收藏（同左）
-// 代码：整理了主函数逻辑；修改了下载列表的数据结构；修改了引用代码，增加了同时找到多个元素时仅回调一次的功能
+// 修复：画师名被正则处理后变为空导致报错
 
 // 更新设置项
 // 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
@@ -846,6 +844,16 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
         });
     }
 
+    // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
+    function authorTrim(author){
+        let test = author.match(patt);
+        if(test && test.length === 1){
+            let tmp = author.replace(test[0],"");
+            author = tmp === "" ? author : tmp;
+        }
+        return author
+    }
+
     function getCommonInfo(){
         //获取标题
         let name = document.getElementsByClassName("sc-1u8nu73-3")[0];
@@ -869,12 +877,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
         }
         let author = $(AUTHOR).text();
         let id = $(AUTHOR).attr("data-gtm-value");
-        // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
-        let test = author.match(patt);
-        if(test && test.length === 1){
-            let tmp = author.replace(test[0],"");
-            author = tmp === "" ? author : tmp;
-        }
+        author = authorTrim(author)
         if(tagAuthor){
             tags.push(author);
         }
@@ -1015,10 +1018,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                         }
                         let author = illustData.userName || illustData.userAccount;
                         let authorId = illustData.userId;
-                        let test = author.match(patt);
-                        if(test && test.length === 1){
-                            author = author.replace(test[0],"");
-                        }
+                        author = authorTrim(author)
                         if(tagAuthor){
                             item.tags.push(author);
                         }
@@ -1069,10 +1069,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                         }
                         let author = illustData.userName || illustData.userAccount;
                         let authorId = illustData.userId;
-                        let test = author.match(patt);
-                        if(test && test.length === 1){
-                            author = author.replace(test[0],"");
-                        }
+                        author = authorTrim(author)
                         if(tagAuthor){
                             item.tags.push(author);
                         }
