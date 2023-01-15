@@ -10,7 +10,7 @@
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @updateURL               https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.6.3
+// @version                 0.6.4
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -24,7 +24,7 @@
 // ==/UserScript==
 
 // 更新内容：
-// 修复：画师名被正则处理后变为空导致报错
+// 修复：批量下载无法正常使用等一系列问题
 
 // 更新设置项
 // 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
@@ -36,6 +36,7 @@ const DL_Multiple = true; // 通过缩略图下载时，下载多P
 const SEARCH_DIR_NAME = ""; // 在需要创建新文件夹时，新建文件夹的父文件夹名，在引号内输入文件夹名。留空则直接创建
 const SEARCH_DIR_ID = ""; // 一般无需填写，上一行所指定文件夹的id（eagle中选中文件夹右键复制链接，获得如‘eagle://folder/K4130PELEY5W9’字符串，文件夹id就是其中K4130PELEY5W9部分）。填写会忽略上一行设置，可用来设置新建文件夹创建到某个子文件夹中。
 const USE_CHECK_BOX = true; // 为true时在每一张图上添加复选框代替下载键，此时下载键将移至图片所在区域上方标题处
+const WAIT_TIME = 1000;
 // 设置项结束
 
 // 读取已存储设置
@@ -47,6 +48,7 @@ var DLMultiple = GM_getValue("DLMultiple", DL_Multiple);
 var searchDirName = GM_getValue("searchDirName", SEARCH_DIR_NAME);
 var searchDirId = GM_getValue("searchDirId", SEARCH_DIR_ID);
 var useCheckbox = GM_getValue("useCheckbox", USE_CHECK_BOX);
+var waitTime = GM_getValue("waitTime", WAIT_TIME);
 // 读取结束
 // 尝试避免正则保存错误带来的后果
 if(patt.source === "[object Object]"){
@@ -83,7 +85,7 @@ const SHOW_ALL_BUTTON = ".sc-emr523-0"; // 多图时显示全部的按键
 const PIC_END = ".gtm-illust-work-scroll-finish-reading" // 展开多图时结束元素
 const UGO_SRC = ".sc-tu09d3-1"; // 动图
 const TAG_SELECTOR = ".sc-pj1a4x-1"; // 标签和标签翻译
-const AUTHOR = ".sc-10gpz4q-6"; // 作者
+const AUTHOR = ".sc-10gpz4q-6 div"; // 作者
 
 const HEADERS = {
     "referer": "https://www.pixiv.net/",
@@ -105,10 +107,14 @@ const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
 // 全局变量
 var folders = [];
 var folders_need_create = []; // {author, pid}
-var download_list = {}; // {url: {data, author, authorId}}
+var download_list = []; // {urls, allPage}
+var data_list = {}; // {url: {data, author, authorId}}
 var build_ver = ""; // Eagle build version
-var run_mode = "else"; // "else" || "image" || "manga" || "ugoira" 
+var run_mode = "else"; // "else" || "image" || "manga" || "ugoira
 var dark_mode = $(NIGHT_MODE).textContent === "dark";
+
+const config_div = createConfigPage();
+const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(resolve, delay)})}
 
 (function(){
     'use strict';
@@ -149,6 +155,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             }
         });
     }
+    checkEagleStatus();
 
     // 侦听URL是否发生变化，代码来自 https://blog.csdn.net/liubangbo/article/details/103272393
     let _wr = function(type) {
@@ -175,6 +182,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
     var waitingForRun; // URL发生变化时，在新页面调用的函数
 
     function main(){
+        // console.log("main")
         if (waitingForRun){
             waitingForRun();
             waitingForRun = undefined;
@@ -229,20 +237,60 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
         });
     }
 
+    // 为确保不反复创建文件夹以及网站报错429，先将所有待下载数据保存到列表
+    function addToDownloadList(url, allPage = false){
+        if (url in data_list) return;
+        download_list.push({url, allPage})
+    }
+
+    async function parseDownloadList(){
+        let count = 0;
+        for(let page_num in download_list){
+            let url = download_list[page_num]["url"];
+            let allPage = download_list[page_num]["allPage"];
+            let data /* [{data, author, authorId}] */;
+            await sleep(waitTime);
+            if (allPage){
+                data = await getImagesPage(url);
+                getFolderId(data[0].author, data[0].authorId);
+                // console.log(data);
+                data_list[url] = data;
+                count += data.length;
+            }
+            else{
+                data = await getImagePage(url);
+                getFolderId(data.author, data.authorId).then((dlFolderId)=>{
+                    if(dlFolderId === undefined){
+                        console.log(`创建文件夹失败！artist: ${data.author}, id: ${data.authorId}`)
+                    }
+                });
+                data_list[url] = [data];
+                count += 1;
+            }
+            console.log(`已解析${page_num}个链接，共${count}个项目`);
+        }
+        download_list = []
+        return count;
+    }
+
     async function downloadList(){
         if (build_ver === ""){
             alert(`请检查eagle是否打开！`);
+            checkEagleStatus();
             return;
         }
         // return console.log(download_list);
+        console.log("开始解析下载列表");
+        let items_num = await parseDownloadList();
+        console.log("解析完成");
         console.log(`需要创建文件夹：${folders_need_create.length}`)
         for(let folder of folders_need_create){
             console.log(folder);
             await creatFolder(folder.author, folder.pid);
         }
-        console.log("文件夹创建完成！开始下载");
-        for(let url in download_list){
-            for (let data of download_list[url]){
+        console.log(`文件夹创建完成！开始下载，共${items_num}项`);
+        for(let url in data_list){
+            for (let data of data_list[url]){
                 // console.log(data); /* {data|item, author, authorId} */
                 getFolderId(data.author, data.authorId).then((dlFolderId)=>{
                     if(dlFolderId === undefined){
@@ -255,7 +303,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                 });
             }
         }
-        download_list = {};
+        data_list = {};
         folders_need_create = [];
     }
 
@@ -313,11 +361,10 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                 $(BOOKMARK_SELECT).each((index, elem)=>{
                     let e = $(SELECT_CHECK, elem)[0];
                     if(e && e.checked){
-                        addToDownloadList("https://www.pixiv.net" + $(SELECT_URL, elem).attr("to"), DLMultiple).then(()=>{
-                            if(--count === 0){
-                                downloadList();
-                            }
-                        });
+                        addToDownloadList("https://www.pixiv.net" + $(SELECT_URL, elem).attr("to"), DLMultiple);
+                        if(--count === 0){
+                            downloadList();
+                        }
                         e.checked = false;
                     }
                     else if(--count === 0){
@@ -357,6 +404,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
 
     // 用户作品页
     function userPage(){
+        // console.log("no error")
         // userId = document.URL.split("/")[4];
         let page = document.URL.split("/")[5]?.split("?")[0];
         let pageCount = document.URL.split("=")[1];
@@ -377,7 +425,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             waitForKeyElements(".to_eagle", (e)=>{e.parent().css("display", "none")}, true);
         }
         else{
-            // console.log("error:", page)
+            console.log("error:", page)
             return;
         }
         let section = $("section")[0];
@@ -389,7 +437,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                     addAllArtToList(tmp);
                     clearInterval(timeControl);
                 }
-            }, 500);
+            }, waitTime);
         }
         function addAllArtToList(elements){
             // let count = $(".to_eagle", section).length;
@@ -401,21 +449,20 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             // $(".to_eagle").each((i,e)=>{
             elements.each((i,e)=>{
                 // return console.log(e.parentElement.nextElementSibling.href);
-                addToDownloadList(e.parentElement.nextElementSibling.href, true).then(()=>{
-                    if(--count === 0){
-                        let nextpage = $(NEXT_PAGE)[1];
-                        if (nextpage === undefined || nextpage.hidden){
-                            console.log("当前筛选条件共有", $("span", $(BUTTON_SELECTOR)).text(), "个目标，实际获取到", Object.keys(download_list).length, "个");
-                            // return console.log(download_list)
-                            downloadList();
-                        }
-                        else{
-                            nextpage.click();
-                            // waitForKeyElements(".to_eagle", addAllArtToList, true, undefined, true);
-                            waitForPageLoaded(elements[0]);
-                        }
+                addToDownloadList(e.parentElement.nextElementSibling.href, true);
+                if(--count === 0){
+                    let nextpage = $(NEXT_PAGE)[1];
+                    if (nextpage === undefined || nextpage.hidden){
+                        console.log("当前筛选条件共有", $("span", $(BUTTON_SELECTOR)).text(), "个目标，实际获取到", download_list.length, "个");
+                        // return console.log(download_list)
+                        downloadList();
                     }
-                });
+                    else{
+                        nextpage.click();
+                        // waitForKeyElements(".to_eagle", addAllArtToList, true, undefined, true);
+                        waitForPageLoaded(elements[0]);
+                    }
+                }
             });
         }
         button.addEventListener("click", ()=>{
@@ -470,11 +517,10 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             let count = $(".to_eagle").length;
             $(".to_eagle").each(async (i,e)=>{
                 if(e.checked){
-                    addToDownloadList(e.parentElement.nextElementSibling.firstElementChild.href).then(()=>{
-                        if(--count === 0){
-                            downloadList();
-                        }
-                    });
+                    addToDownloadList(e.parentElement.nextElementSibling.firstElementChild.href);
+                    if(--count === 0){
+                        downloadList();
+                    }
                     e.checked = false;
                 }
                 else if(--count === 0){
@@ -566,7 +612,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                 });
                 return [data,author, id];
             };
-            
+
             function getSelectData(){
                 let checkbox = $(".to_eagle");
                 let [name, annotation, tags, author, id] = getCommonInfo();
@@ -639,7 +685,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                     imgs.each((index,element)=>{
                         element.before(createCheckbox());
                     });
-                }            
+                }
                 waitForKeyElements(PIC_END, addMangaCheckbox, true);
             }
             let clickpos = $(PIC_SRC);
@@ -716,7 +762,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                 if(target) return target;
             }
         }
-    
+
         if(!pid){
             console.log("获取用户id失败！");
         }
@@ -922,11 +968,10 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
             let count = $(".to_eagle", element).length;
             $(".to_eagle", element).each((i,e)=>{
                 if(e.checked){
-                    addToDownloadList(e.parentElement.nextElementSibling.href).then(()=>{
-                        if(--count === 0){
-                            downloadList();
-                        }
-                    });
+                    addToDownloadList(e.parentElement.nextElementSibling.href);
+                    if(--count === 0){
+                        downloadList();
+                    }
                     e.checked = false;
                 }
                 else if(--count === 0){
@@ -987,7 +1032,7 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
     }
 
     // 获取新页面并返回图片信息
-    function getImagePage(url){
+    async function getImagePage(url){
         return new Promise((resolve, reject)=>{
             let item = {
                 "website": url,
@@ -1037,7 +1082,8 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
     }
 
     // 获取新页面并返回所有图片信息
-    function getImagesPage(url){
+    async function getImagesPage(url){
+        await sleep(waitTime);
         return new Promise((resolve, reject)=>{
             $.ajax({
                 type: "GET",
@@ -1099,24 +1145,6 @@ var dark_mode = $(NIGHT_MODE).textContent === "dark";
                 }
             });
         });
-    }
-
-
-    // 为确保不反复创建文件夹，先将所有待下载数据保存到列表
-    async function addToDownloadList(url, allPage = false){
-        if (url in download_list) return;
-        let data /* [{data, author, authorId}] */;
-        if (allPage){
-            data = await getImagesPage(url);
-            getFolderId(data[0].author, data[0].authorId);
-            // console.log(data);
-            download_list[url] = data;
-        }
-        else{
-            data = await getImagePage(url);
-            getFolderId(data.author, data.authorId);
-            download_list[url] = [data];
-        }
     }
 })();
 
@@ -1233,10 +1261,22 @@ function waitForKeyElements (
     waitForKeyElements.controlObj   = controlObj;
 }
 
+
+// 脚本设置选项
 GM_registerMenuCommand("更新设置", updateConfig);
 
 function updateConfig(){
-    let div = document.createElement("div");
+    if (config_div.style.display === "none"){
+        config_div.style.display = "inline";
+    }
+    else{
+        config_div.style.display = "none";
+    }
+}
+
+function createConfigPage(){
+    let config_div = document.createElement("div");
+
     function createNewConfig(text, type, value){
         let p = document.createElement("p");
         let input = document.createElement("input");
@@ -1245,15 +1285,22 @@ function updateConfig(){
             input.style.width = "100%";
             input.value = value;
             p.innerText = text;
-            div.appendChild(p);
-            div.appendChild(input);
+            config_div.appendChild(p);
+            config_div.appendChild(input);
+        }
+        else if(type === "number"){
+            // input.style.width = 
+            input.value = value;
+            p.append(text);
+            p.appendChild(input);
+            config_div.appendChild(p);
         }
         else if(type === "checkbox"){
             input.style.marginLeft = "10px";
             input.checked = value;
             p.appendChild(input);
             p.append(text);
-            div.appendChild(p);
+            config_div.appendChild(p);
         }
         return input;
     }
@@ -1263,6 +1310,8 @@ function updateConfig(){
     let addToFavor_input = createNewConfig("下载时是否同时加入收藏", "checkbox", addToFavor);
     let useCheckbox_input = createNewConfig("使用复选框，而不是每张图添加下载按键", "checkbox", useCheckbox);
     let DLMultiple_input = createNewConfig("在收藏夹内下载时，下载多P", "checkbox", DLMultiple);
+    // 整型
+    let waitTime_input = createNewConfig("批量下载时等待时间（单位：ms）", "number", waitTime);
     // 文本
     let patt_input = createNewConfig("正则表达式，处理作者名多余后缀：", "text", patt.source);
     let searchDirName_input = createNewConfig("父文件夹名：\n（在需要创建新文件夹时，新建文件夹的父文件夹名，在引号内输入文件夹名。留空则直接创建）", "text", searchDirName);
@@ -1282,6 +1331,7 @@ function updateConfig(){
         patt = new RegExp(patt_input.value);
         searchDirName = searchDirName_input.value;
         searchDirId = searchDirId_input.value;
+        waitTime = waitTime_input.value;
         GM_setValue("patt", patt.source);
         GM_setValue("saveTags", saveTags);
         GM_setValue("tagAuthor", tagAuthor);
@@ -1290,20 +1340,25 @@ function updateConfig(){
         GM_setValue("searchDirId", searchDirId);
         GM_setValue("useCheckbox", useCheckbox);
         GM_setValue("DLMultiple", DLMultiple);
-        div.remove();
+        GM_setValue("waitTime", waitTime);
+        config_div.style.display = "none";
     });
     button_cancel.addEventListener("click",()=>{
-        div.remove();
+        config_div.style.display = "none";
     });
-    div.appendChild(button_save);
-    div.appendChild(button_cancel);
-    div.style.position = "fixed";
-    div.style.width = "80%";
-    div.style.top = "10%";
-    div.style.left = "10%";
-    div.style.padding = "15px";
+    config_div.appendChild(button_save);
+    config_div.appendChild(button_cancel);
+    config_div.style.position = "fixed";
+    config_div.style.width = "80%";
+    config_div.style.top = "15%";
+    config_div.style.left = "10%";
+    config_div.style.padding = "15px";
+    config_div.style.border = "1px solid #777777";
+    config_div.style.borderRadius = "5px";
+    config_div.style.boxShadow = "-5px 5px 10px rgb(0 0 0 / 50%)";
     dark_mode = $(NIGHT_MODE).text() === "dark";
-    div.style.background = dark_mode ? "black" : "white";
-    document.body.appendChild(div);
+    config_div.style.background = dark_mode ? "black" : "white";
+    document.body.appendChild(config_div);
+    config_div.style.display = "none";
+    return config_div;
 }
-
