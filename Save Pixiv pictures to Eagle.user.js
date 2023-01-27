@@ -85,7 +85,7 @@ const SHOW_ALL_BUTTON = ".sc-emr523-0"; // 多图时显示全部的按键
 const PIC_END = ".gtm-illust-work-scroll-finish-reading" // 展开多图时结束元素
 const UGO_SRC = ".sc-tu09d3-1"; // 动图
 const TAG_SELECTOR = ".sc-pj1a4x-1"; // 标签和标签翻译
-const AUTHOR = ".sc-10gpz4q-6 div"; // 作者
+const AUTHOR = ".sc-10gpz4q-6"; // 作者
 
 const HEADERS = {
     "referer": "https://www.pixiv.net/",
