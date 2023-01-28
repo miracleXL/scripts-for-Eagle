@@ -10,7 +10,7 @@
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @updateURL               https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.6.4
+// @version                 0.6.5
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -23,8 +23,8 @@
 // @require                 https://code.jquery.com/jquery-3.5.1.min.js
 // ==/UserScript==
 
-// 更新内容：
-// 修复：批量下载无法正常使用等一系列问题
+// 更新内容：添加指定页码区间批量下载
+// 修复：无法正确获得id，导致创建文件夹id=undefined
 
 // 更新设置项
 // 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
@@ -68,6 +68,7 @@ const NEW_ILLUST_BUTTON = ".sc-192ftwf-0"; // 新作品页按键位置
 const RANK_PAGE_BUTTON = "nav.column-menu"; // 排行榜按键位置
 const DL_ILLUST_BUTTON = ".sc-iasfms-2"; // 不使用复选框时，下载单张图片的按键位置
 const SHOW_ALL = "a.sc-d98f2c-0.sc-s46o24-1" // 用户页面显示全部图片的按键位置
+const FIRST_PAGE = ".kHhIF" // 翻页第一页按键位置
 const NEXT_PAGE = ".kKBslM" // 用户artwork页面翻页按键位置
 
 // 收藏页
@@ -85,7 +86,7 @@ const SHOW_ALL_BUTTON = ".sc-emr523-0"; // 多图时显示全部的按键
 const PIC_END = ".gtm-illust-work-scroll-finish-reading" // 展开多图时结束元素
 const UGO_SRC = ".sc-tu09d3-1"; // 动图
 const TAG_SELECTOR = ".sc-pj1a4x-1"; // 标签和标签翻译
-const AUTHOR = ".sc-10gpz4q-6 div"; // 作者
+const AUTHOR = ".sc-10gpz4q-6"; // 作者
 
 const HEADERS = {
     "referer": "https://www.pixiv.net/",
@@ -400,6 +401,8 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                 elem.append(addDownloadButton());
             }
         })
+        let dl_page_between = createMultiPageButton();
+        $(NEW_ILLUST_BUTTON).append(dl_page_between);
     }
 
     // 用户作品页
@@ -425,46 +428,10 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             waitForKeyElements(".to_eagle", (e)=>{e.parent().css("display", "none")}, true);
         }
         else{
-            console.log("error:", page)
+            // 个人主页，不创建按键
             return;
         }
         let section = $("section")[0];
-        function waitForPageLoaded(lastFirst){
-            let timeControl = setInterval(()=>{
-                let tmp = $(".to_eagle");
-                let nextpage = $(NEXT_PAGE)[1];
-                if ((tmp.length == 48 || ((nextpage === undefined || nextpage.hidden) && tmp.length > 0)) && tmp[0] != lastFirst){
-                    addAllArtToList(tmp);
-                    clearInterval(timeControl);
-                }
-            }, waitTime);
-        }
-        function addAllArtToList(elements){
-            // let count = $(".to_eagle", section).length;
-            let count = elements.length;
-            console.log("从", document.URL,"获取到", count, "个作品链接");
-            // if (count < 48){
-            //     console.log("当前页面疑似未能加载完成，请之后手动下载……");
-            // }
-            // $(".to_eagle").each((i,e)=>{
-            elements.each((i,e)=>{
-                // return console.log(e.parentElement.nextElementSibling.href);
-                addToDownloadList(e.parentElement.nextElementSibling.href, true);
-                if(--count === 0){
-                    let nextpage = $(NEXT_PAGE)[1];
-                    if (nextpage === undefined || nextpage.hidden){
-                        console.log("当前筛选条件共有", $("span", $(BUTTON_SELECTOR)).text(), "个目标，实际获取到", download_list.length, "个");
-                        // return console.log(download_list)
-                        downloadList();
-                    }
-                    else{
-                        nextpage.click();
-                        // waitForKeyElements(".to_eagle", addAllArtToList, true, undefined, true);
-                        waitForPageLoaded(elements[0]);
-                    }
-                }
-            });
-        }
         button.addEventListener("click", ()=>{
             if (build_ver == ""){
                 checkEagleStatus();
@@ -478,13 +445,15 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             }
             else if(pageCount && pageCount != "1"){
                 // $(".to_eagle").data ('alreadyFound', true);
-                $(".kHhIF")[0].click();
+                $(FIRST_PAGE)[0].click();
             }
             // waitForKeyElements(".to_eagle", addAllArtToList, true, undefined, true);
-            waitForPageLoaded();
+            waitForPageLoaded(undefined, addAllArtToList);
             button.style.color = "rgb(0 150 250 / 70%)";
         });
         $(BUTTON_SELECTOR, section).append(button);
+        let dl_page_between = createMultiPageButton();
+        $(BUTTON_SELECTOR, section).append(dl_page_between);
     }
 
     // 排行榜
@@ -517,7 +486,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             let count = $(".to_eagle").length;
             $(".to_eagle").each(async (i,e)=>{
                 if(e.checked){
-                    addToDownloadList(e.parentElement.nextElementSibling.firstElementChild.href);
+                    addToDownloadList(e.parentElement.nextElementSibling.firstElementChild.href, DLMultiple);
                     if(--count === 0){
                         downloadList();
                     }
@@ -729,6 +698,94 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
         return imagePage();
     };
 
+    // 等待页面加载完成
+    function waitForPageLoaded(lastFirst, callback){
+        return new Promise((resolve, reject) => {
+            let timeControl = setInterval(()=>{
+                if (lastFirst === undefined){
+                    reject(alert(lastFirst))
+                }
+                let tmp = $(".to_eagle");
+                if (tmp.length > 0 && tmp[0] != lastFirst){
+                    clearInterval(timeControl);
+                    if (callback){
+                        resolve([tmp, callback(tmp)]);
+                    }
+                    else{
+                        resolve(tmp);
+                    }
+                }
+            }, waitTime);
+        });
+    }
+
+    function addThisPageToList(){
+        let elements = $(".to_eagle");
+        let count = elements.length;
+        console.log("从", document.URL,"获取到", count, "个作品链接");
+        elements.each((i,e)=>{
+            addToDownloadList(e.parentElement.nextElementSibling.href, DLMultiple);
+            if(--count === 0){
+                downloadList().then(()=>{
+                    console.log(document.URL, "解析完成");
+                })
+            }
+        });
+    }
+
+    async function addAllArtBetweenPages(start_page, end_page){
+        console.log(`准备下载第${start_page}页到第${end_page}页内容`);
+        let page = document.URL.split("=")[1];
+        if (page === undefined){
+            page = "1";
+        }
+        let elements = $(".to_eagle");
+        if (page != start_page){
+            if (page != "1"){
+                $(FIRST_PAGE)[0].click();
+                elements = await waitForPageLoaded(elements[0]);
+            }
+            if (start_page != "1"){
+                console.log(`将从第1页开始翻页至第${start_page}页`);
+                while (page != start_page){
+                    $(NEXT_PAGE)[1].click();
+                    elements = await waitForPageLoaded(elements[0]);
+                    page = document.URL.split("=")[1];
+                }
+            }
+        }
+        for (let i = start_page; i < end_page; i++){
+            console.log(`开始解析第${i}页`);
+            addThisPageToList();
+            $(NEXT_PAGE)[1].click();
+            elements = await waitForPageLoaded(elements[0]);
+        }
+        addThisPageToList();
+    }
+
+    function addAllArtToList(elements){
+        let count = elements.length;
+        console.log("从", document.URL,"获取到", count, "个作品链接");
+        // if (count < 48){
+        //     console.log("当前页面疑似未能加载完成，请之后手动下载……");
+        // }
+        elements.each((i,e)=>{
+            addToDownloadList(e.parentElement.nextElementSibling.href, true);
+            if(--count === 0){
+                downloadList().then(() => {
+                    let nextpage = $(NEXT_PAGE)[1];
+                    if (nextpage === undefined || nextpage.hidden){
+                        console.log("全部页面解析完成");
+                    }
+                    else{
+                        nextpage.click();
+                        waitForPageLoaded(elements[0], addAllArtToList);
+                    }
+                });
+            }
+        });
+    }
+
     // 获取文件夹id
     async function getFolderId(author, pid){
         // 搜索同名或注释中包含有pid信息的文件夹
@@ -857,7 +914,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                             name: folderName,
                             description: `pid = ${pid}`
                         });
-                        console.log(folders);
+                        // console.log(folders);
                         return resolve(result.data);
                     }
                     else{
@@ -921,7 +978,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                 })
             })
         }
-        let author = $(AUTHOR).text();
+        let author = $(`${AUTHOR} div`).text();
         let id = $(AUTHOR).attr("data-gtm-value");
         author = authorTrim(author)
         if(tagAuthor){
@@ -968,7 +1025,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             let count = $(".to_eagle", element).length;
             $(".to_eagle", element).each((i,e)=>{
                 if(e.checked){
-                    addToDownloadList(e.parentElement.nextElementSibling.href);
+                    addToDownloadList(e.parentElement.nextElementSibling.href, DLMultiple);
                     if(--count === 0){
                         downloadList();
                     }
@@ -981,6 +1038,30 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             button3.style.color = "rgb(0 150 250 / 70%)";
         });
         return [button1, button2, button3]
+    }
+
+    // 
+    function createMultiPageButton(){
+        let pageCount = document.URL.split("=")[1];
+        if (pageCount === undefined){
+            pageCount = 1;
+        }
+        let dl_page_between = document.createElement("div");
+        dl_page_between.innerHTML = `<button class="button_to_eagle" style="border: none; background: none; margin-left: 20px; font-size: x-small; font-weight: bold; color: gray; cursor: pointer;">翻页下载</button><input type="number" name="start_page" min="1" max="34" value="1"><a>-</a><input type="number" name="end_page" min="1" max="34" value="${pageCount}">`
+        dl_page_between.style = "display: flex;align-items: center;"
+        $("button", dl_page_between).click(()=>{
+            if (build_ver === ""){
+                checkEagleStatus();
+            }
+            let start_page = $("input[name=start_page]").val();
+            let end_page = $("input[name=end_page]").val();
+            if (start_page > end_page){
+                alert("请输入正确页码区间！");
+                return;
+            }
+            addAllArtBetweenPages(start_page, end_page);
+        })
+        return dl_page_between;
     }
 
     // 创建选择框
@@ -1309,7 +1390,7 @@ function createConfigPage(){
     let tagAuthor_input = createNewConfig("是否将作者名加入标签", "checkbox", tagAuthor);
     let addToFavor_input = createNewConfig("下载时是否同时加入收藏", "checkbox", addToFavor);
     let useCheckbox_input = createNewConfig("使用复选框，而不是每张图添加下载按键", "checkbox", useCheckbox);
-    let DLMultiple_input = createNewConfig("在收藏夹内下载时，下载多P", "checkbox", DLMultiple);
+    let DLMultiple_input = createNewConfig("批量下载时，下载多P", "checkbox", DLMultiple);
     // 整型
     let waitTime_input = createNewConfig("批量下载时等待时间（单位：ms）", "number", waitTime);
     // 文本
