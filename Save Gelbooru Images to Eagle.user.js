@@ -16,11 +16,15 @@
 // @connect             gelbooru.com
 // @connect             localhost
 // @grant               GM_xmlhttpRequest
+// @require             https://code.jquery.com/jquery-3.5.1.min.js
 // ==/UserScript==
 
 
 (function() {
     'use strict';
+    // 是否保存标签
+    const saveTags = true;
+    const saveMetadataTags = false;
 
     // Eagle API 服务器位置
     const EAGLE_SERVER_URL = "http://localhost:41595";
@@ -28,25 +32,8 @@
     const EAGLE_IMPORT_API_URLS = `${EAGLE_SERVER_URL}/api/item/addFromURLs`;
     const EAGLE_CREATE_FOLDER_API_URL = `${EAGLE_SERVER_URL}/api/folder/create`;
     const EAGLE_GET_FOLDERS_API_URL = `${EAGLE_SERVER_URL}/api/folder/list`;
-    
-    // 是否保存标签
-    const saveTags = true;
 
-    function addButton(){
-        let button = document.createElement("a");
-        button.innerText = "Download";
-        button.href = "javascript:;";
-        let buttons_div = document.getElementById("showCommentBox").parentNode;
-        buttons_div.appendChild(button);
-        //绑定下载事件
-        button.addEventListener("click",async ()=>{
-            let data = getImageData();
-            console.log(data);
-            download(data);
-        })
-    }
-
-    addButton();
+    const BUTTON_POS = "scrollebox";
 
     function download(data){
         GM_xmlhttpRequest({
@@ -62,15 +49,31 @@
         });
     }
 
+    function addButton(buttons_div){
+        buttons_div.append(" | ");
+        let button = document.createElement("a");
+        button.innerText = "Download to Eagle";
+        button.href = "javascript:;";
+        buttons_div.appendChild(button);
+        //绑定下载事件
+        button.addEventListener("click",async ()=>{
+            let data = getImageData();
+            console.log(data);
+            download(data);
+        })
+    }
+
+    addButton(document.getElementById(BUTTON_POS));
+
     function getImageData(){
-        let url = document.getElementById("tag-list").getElementsByTagName("h3")[1];
-        while(url.textContent != "Original image"){
-            url = url.nextElementSibling;
-        }
+        let tag_list = document.getElementById("tag-list");
+        let url = $("li a:contains(Original image)", tag_list)[0];
+        let source = $("li:contains(Source: )", tag_list)[0];
         let data = {
-            "url": url.firstElementChild.href,
+            "url": url.href,
             "name": document.title,
             "website": document.URL,
+            "annotation": source?.textContent,
             "tags": [],
             "headers": {
                 "referer" : document.URL
@@ -79,6 +82,14 @@
         if(saveTags){
             for(let tag of document.getElementsByClassName("tag-type-artist")){
                 data.tags.push(tag.children[1].textContent);
+            }
+            for(let tag of document.getElementsByClassName("tag-type-character")){
+                data.tags.push(tag.children[1].textContent);
+            }
+            if(saveMetadataTags){
+                for(let tag of document.getElementsByClassName("tag-type-metadata")){
+                    data.tags.push(tag.children[1].textContent);
+                }
             }
             for(let tag of document.getElementsByClassName("tag-type-copyright")){
                 data.tags.push(tag.children[1].textContent);
