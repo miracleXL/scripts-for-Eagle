@@ -9,7 +9,7 @@
 // @namespace           https://github.com/miracleXL
 // @homepageURL         https://github.com/miracleXL/scripts-for-Eagle
 // @icon                https://gelbooru.com/favicon.ico
-// @version             0.1.1
+// @version             0.1.2
 
 // @author              miracleXL
 // @match               gelbooru.com/index.php?page=post&s=view&id=*
