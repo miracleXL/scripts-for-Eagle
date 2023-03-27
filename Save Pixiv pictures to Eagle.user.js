@@ -703,7 +703,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
         return new Promise((resolve, reject) => {
             let timeControl = setInterval(()=>{
                 if (lastFirst === undefined){
-                    reject(alert(lastFirst))
+                    reject(lastFirst)
                 }
                 let tmp = $(".to_eagle");
                 if (tmp.length > 0 && tmp[0] != lastFirst){
