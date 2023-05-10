@@ -10,7 +10,7 @@
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @updateURL               https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.6.5
+// @version                 0.6.6
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -68,8 +68,8 @@ const NEW_ILLUST_BUTTON = ".sc-192ftwf-0"; // 新作品页按键位置
 const RANK_PAGE_BUTTON = "nav.column-menu"; // 排行榜按键位置
 const DL_ILLUST_BUTTON = ".sc-iasfms-2"; // 不使用复选框时，下载单张图片的按键位置
 const SHOW_ALL = "a.sc-d98f2c-0.sc-s46o24-1" // 用户页面显示全部图片的按键位置
-const FIRST_PAGE = ".kHhIF" // 翻页第一页按键位置
-const NEXT_PAGE = ".kKBslM" // 用户artwork页面翻页按键位置
+const FIRST_PAGE = "a.sc-xhhh7v-1-filterProps-Styled-Component:eq(1)" // 翻页第一页按键位置
+const NEXT_PAGE = "a.sc-xhhh7v-1-filterProps-Styled-Component:eq(-1)" // 用户artwork页面翻页按键位置
 
 // 收藏页
 const BOOKMARKS_BUTTON = "div.sc-1u8zqt7-0"; // 管理收藏按键
@@ -748,7 +748,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             if (start_page != "1"){
                 console.log(`将从第1页开始翻页至第${start_page}页`);
                 while (page != start_page){
-                    $(NEXT_PAGE)[1].click();
+                    $(NEXT_PAGE)[0].click();
                     elements = await waitForPageLoaded(elements[0]);
                     page = document.URL.split("=")[1];
                 }
@@ -757,7 +757,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
         for (let i = start_page; i < end_page; i++){
             console.log(`开始解析第${i}页`);
             addThisPageToList();
-            $(NEXT_PAGE)[1].click();
+            $(NEXT_PAGE)[0].click();
             elements = await waitForPageLoaded(elements[0]);
         }
         addThisPageToList();
@@ -773,7 +773,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             addToDownloadList(e.parentElement.nextElementSibling.href, true);
             if(--count === 0){
                 downloadList().then(() => {
-                    let nextpage = $(NEXT_PAGE)[1];
+                    let nextpage = $(NEXT_PAGE)[0];
                     if (nextpage === undefined || nextpage.hidden){
                         console.log("全部页面解析完成");
                     }
