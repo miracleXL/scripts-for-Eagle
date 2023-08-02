@@ -10,7 +10,7 @@
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @updateURL               https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.6.6
+// @version                 0.6.7
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -23,18 +23,21 @@
 // @require                 https://code.jquery.com/jquery-3.5.1.min.js
 // ==/UserScript==
 
-// 更新内容：添加指定页码区间批量下载
-// 修复：无法正确获得id，导致创建文件夹id=undefined
+// 修复：未能正确捕获夜间模式；尝试删除作者名最后的接稿中
+// 新增：可自定义新建文件夹名格式；可设置多图自动创建子文件夹；可设置只保存翻译标签或只保存原始标签
 
 // 更新设置项
 // 不再使用！！请在打开pixiv的网页后，点击油猴插件，再点击本脚本下面的“更新设置”，在网页中添加的设置页面中修改并保存。后续更新将不会再清空设置
 const PATT = / *[@＠◆■◇☆⭐️🌟🦇💎🔞🍅🌱🐻🍬：:\\\/].*/; // 处理作者名多余后缀的正则
 const SAVE_TAGS = true; // 是否保存标签
 const TAG_AUTHOR = true; // 是否将作者名加入标签
+const TAG_TRANSLATION = 2; // 标签翻译处理方式，0：仅加入原标签；1：仅加入翻译标签；2：均加入标签
 const ADD_TO_FAVOR = true; // 下载时是否同时加入收藏
 const DL_Multiple = true; // 通过缩略图下载时，下载多P
+const CREATE_SUBFOLDER = false; // 多图时创建子文件夹
 const SEARCH_DIR_NAME = ""; // 在需要创建新文件夹时，新建文件夹的父文件夹名，在引号内输入文件夹名。留空则直接创建
 const SEARCH_DIR_ID = ""; // 一般无需填写，上一行所指定文件夹的id（eagle中选中文件夹右键复制链接，获得如‘eagle://folder/K4130PELEY5W9’字符串，文件夹id就是其中K4130PELEY5W9部分）。填写会忽略上一行设置，可用来设置新建文件夹创建到某个子文件夹中。
+const DIR_NAME_FORMATER = "${authorName}" // 文件夹名称格式，默认为作者名，可用变量包括 ${authorName} 和 ${pid} 两个。
 const USE_CHECK_BOX = true; // 为true时在每一张图上添加复选框代替下载键，此时下载键将移至图片所在区域上方标题处
 const WAIT_TIME = 1000;
 // 设置项结束
@@ -43,10 +46,13 @@ const WAIT_TIME = 1000;
 var patt = new RegExp(GM_getValue("patt", PATT.source));
 var saveTags = GM_getValue("saveTags", SAVE_TAGS);
 var tagAuthor = GM_getValue("tagAuthor", TAG_AUTHOR);
+var tagTranslation = GM_getValue("tagTranslation", TAG_TRANSLATION);
 var addToFavor = GM_getValue("addToFavor", ADD_TO_FAVOR);
 var DLMultiple = GM_getValue("DLMultiple", DL_Multiple);
+var createSubfolder = GM_getValue("createSubfolder", CREATE_SUBFOLDER);
 var searchDirName = GM_getValue("searchDirName", SEARCH_DIR_NAME);
 var searchDirId = GM_getValue("searchDirId", SEARCH_DIR_ID);
+var dirNameFormater = GM_getValue("dirNameFormater", DIR_NAME_FORMATER);
 var useCheckbox = GM_getValue("useCheckbox", USE_CHECK_BOX);
 var waitTime = GM_getValue("waitTime", WAIT_TIME);
 // 读取结束
@@ -62,7 +68,6 @@ const create_child_folder = 20210806; // 支持创建子文件夹的版本build�
 
 // 各种页面元素JQuery选择器
 const PAGE_SELECTOR = "div[type=illust] .sc-rp5asc-0"; // Pixiv首页及用户页图片选择器
-const NIGHT_MODE = "#gtm-var-theme-kind" // 夜间模式
 const BUTTON_SELECTOR = ".sc-7zddlj-1"; // 使用添加选择框的方式时的下载按钮位置
 const NEW_ILLUST_BUTTON = ".sc-192ftwf-0"; // 新作品页按键位置
 const RANK_PAGE_BUTTON = "nav.column-menu"; // 排行榜按键位置
@@ -112,10 +117,14 @@ var download_list = []; // {urls, allPage}
 var data_list = {}; // {url: {data, author, authorId}}
 var build_ver = ""; // Eagle build version
 var run_mode = "else"; // "else" || "image" || "manga" || "ugoira
-var dark_mode = $(NIGHT_MODE).textContent === "dark";
+
+function isDarkMode(){
+    return document.getElementsByTagName("html")[0].getAttribute("data-theme") === "dark";
+}
 
 const config_div = createConfigPage();
 const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(resolve, delay)})}
+
 
 (function(){
     'use strict';
@@ -287,7 +296,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
         console.log(`需要创建文件夹：${folders_need_create.length}`)
         for(let folder of folders_need_create){
             console.log(folder);
-            await creatFolder(folder.author, folder.pid);
+            await createFolder(folder.author, folder.pid);
         }
         console.log(`文件夹创建完成！开始下载，共${items_num}项`);
         for(let url in data_list){
@@ -347,8 +356,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             button.className = "sc-1ij5ui8-0 QihHO sc-13ywrd6-7 tPCje";
             button.setAttribute("aria-disabled", "false");
             button.setAttribute("role", "button");
-            dark_mode = $(NIGHT_MODE).text() === "dark";
-            if(dark_mode){
+            if(isDarkMode()){
                 button.innerHTML='<div aria-disabled="false" class="sc-4a5gah-0 hCTOkT"><div class="sc-4a5gah-1 kHyYuA">下载</div></div>';
             }
             else{
@@ -579,7 +587,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                     });
                     index++;
                 });
-                return [data,author, id];
+                return [data, author, id, name];
             };
 
             function getSelectData(){
@@ -598,7 +606,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                         })
                     }
                 });
-                return [data, author, id];
+                return [data, author, id, name];
             };
 
             let pos = $(BUTTON_POS);
@@ -617,8 +625,12 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                         document.getElementsByClassName("gtm-main-bookmark")[0].click();
                     }catch(e){}
                 }
-                let [data, author, id] = getImagesData();
+                let [data, author, id, name] = getImagesData();
                 let dlFolderId = await getFolderId(author, id);
+                if(data.items.length > 1 && createSubfolder){
+                    let data = await createFolder(name, id, dlFolderId, true);
+                    dlFolderId = data.id;
+                }
                 if(dlFolderId === undefined){
                     console.log("创建文件夹失败！尝试直接下载……");
                 }
@@ -630,15 +642,19 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             });
             let added = false;
             function changeButton(){
-                console.log("changed")
+                // console.log("changed")
                 if(added) return;
                 added = true;
                 $("span",button)[0].innerText = "下载全部";
                 let button2 = createNormalButton("下载选择");
                 pos[0].appendChild(button2);
                 button2.addEventListener("click", async () => {
-                    let [data, author, id] = getSelectData();
+                    let [data, author, id, name] = getSelectData();
                     let dlFolderId = await getFolderId(author, id);
+                    if(data.items.length > 1 && createSubfolder){
+                        let data = await createFolder(name, id, dlFolderId, true);
+                        dlFolderId = data.id;
+                    }
                     if (dlFolderId === undefined) {
                         console.log("创建文件夹失败！尝试直接下载……");
                     }
@@ -883,25 +899,30 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                 return undefined;
             }
             else{
-                dlFolder = await creatFolder(author, pid);
+                dlFolder = await createFolder(author, pid);
             }
         }
         return dlFolder.id;
     }
 
     // 创建文件夹
-    function creatFolder(folderName, pid){
+    function createFolder(authorName, pid, parentFolderId, subfolder=false){
         if (build_ver == ""){
             checkEagleStatus();
         }
+        let folderName = dirNameFormater.replaceAll(/\$\{authorName\}/g, authorName).replaceAll(/\$\{pid\}/g, pid);
+        if(subfolder){
+            folderName = authorName;
+        }
         return new Promise((resolve, reject) => {
-            if(searchDirId === ""){
-                searchDirId = undefined;
+            parentFolderId = parentFolderId || searchDirId;
+            if(parentFolderId === ""){
+                parentFolderId = undefined;
             }
             GM_xmlhttpRequest({
                 url: EAGLE_CREATE_FOLDER_API_URL,
                 method: "POST",
-                data: JSON.stringify({ folderName: folderName, parent: searchDirId }),
+                data: JSON.stringify({ folderName: folderName, parent: parentFolderId }),
                 onload: function(response) {
                     var result = JSON.parse(response.response);
                     if (result.status === "success" && result.data && result.data.id) {
@@ -947,13 +968,15 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
         });
     }
 
-    // 删除多余后缀，为避免误伤，同时使用多种符号不作处理
+    // 格式化作者名，删除多余后缀，为避免误伤，同时匹配到多次不作处理
     function authorTrim(author){
         let test = author.match(patt);
         if(test && test.length === 1){
             let tmp = author.replace(test[0],"");
             author = tmp === "" ? author : tmp;
         }
+        // 删掉“接稿中”三个字
+        author = author.replace(/接稿中$/, "");
         return author
     }
 
@@ -974,7 +997,9 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
         if(saveTags){
             $(TAG_SELECTOR).each((index,elem)=>{
                 $("a", elem).each((i,tag)=>{
-                    if(tag.textContent) tags.push(tag.textContent);
+                    if((i == 0 && tagTranslation != 1) || (i == 1 && tagTranslation != 0)){
+                        if(tag.textContent) tags.push(tag.textContent);
+                    }
                 })
             })
         }
@@ -1134,11 +1159,20 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                         item.url = illustData.urls.original;
                         item.name = illustData.title;
                         item.annotation = illustData.description;
-                        for(let tag of illustData.tags.tags){
-                            item.tags.push(tag.tag);
-                            if(tag.translation){
-                                for(let trans of Object.values(tag.translation)){
-                                    item.tags.push(trans);
+                        if (saveTags){
+                            for(let tag of illustData.tags.tags){
+                                if(tag.translation){
+                                    if(tagTranslation != 1){
+                                        item.tags.push(tag.tag);
+                                    }
+                                    if(tagTranslation != 0){
+                                        for(let trans of Object.values(tag.translation)){
+                                            item.tags.push(trans);
+                                        }
+                                    }
+                                }
+                                else{
+                                    item.tags.push(tag.tag);
                                 }
                             }
                         }
@@ -1347,6 +1381,7 @@ function waitForKeyElements (
 GM_registerMenuCommand("更新设置", updateConfig);
 
 function updateConfig(){
+    config_div.style.background = isDarkMode() ? "black" : "white";
     if (config_div.style.display === "none"){
         config_div.style.display = "inline";
     }
@@ -1385,18 +1420,43 @@ function createConfigPage(){
         }
         return input;
     }
+    function createSelection(info, name, values, display_names, selected){
+        let div = document.createElement("div");
+        div.innerText = info;
+        let selection = document.createElement("select");
+        selection.name = name;
+        div.appendChild(selection);
+        // selectedIndex = 0;
+        for (let i in values){
+            let opt = document.createElement("option");
+            opt.value = values[i];
+            opt.innerText = display_names[i];
+            if(values[i] == selected){
+                // selection.selectedIndex = i;
+                opt.setAttribute("selected", "");
+            }
+            selection.appendChild(opt);
+        }
+        config_div.appendChild(div);
+        return selection;
+    }
     // 布尔值
     let saveTags_input = createNewConfig("是否保存标签", "checkbox", saveTags);
     let tagAuthor_input = createNewConfig("是否将作者名加入标签", "checkbox", tagAuthor);
     let addToFavor_input = createNewConfig("下载时是否同时加入收藏", "checkbox", addToFavor);
     let useCheckbox_input = createNewConfig("使用复选框，而不是每张图添加下载按键", "checkbox", useCheckbox);
     let DLMultiple_input = createNewConfig("批量下载时，下载多P", "checkbox", DLMultiple);
+    let createSubfolder_input = createNewConfig("多P时创建子文件夹", "checkbox", createSubfolder);
+    // 单选
+    let tagTranslation_input = createSelection("标签翻译处理方式", "tagTrans", [0, 1, 2], ["仅保存原文", "仅保存翻译", "保存原文与翻译"], tagTranslation);
     // 整型
     let waitTime_input = createNewConfig("批量下载时等待时间（单位：ms）", "number", waitTime);
     // 文本
-    let patt_input = createNewConfig("正则表达式，处理作者名多余后缀：", "text", patt.source);
+    let patt_input = createNewConfig("正则表达式，处理作者名多余后缀，匹配到的内容将被删除：", "text", patt.source);
     let searchDirName_input = createNewConfig("父文件夹名：\n（在需要创建新文件夹时，新建文件夹的父文件夹名，在引号内输入文件夹名。留空则直接创建）", "text", searchDirName);
     let searchDirId_input = createNewConfig("父文件夹id：\n（一般无需填写，填写会忽略上一行设置，可用来设置新建文件夹创建到某个子文件夹中。）\n（eagle中选中文件夹右键复制链接，获得如‘eagle://folder/K4130PELEY5W9’字符串，文件夹id就是其中K4130PELEY5W9部分）", "text", searchDirId);
+    let dirNameFormater_input = createNewConfig("新建文件夹名格式化：\n默认为作者名，可用变量包括 ${authorName} 和 ${pid} ", "text", dirNameFormater);
+
     let button_save = document.createElement("button");
     let button_cancel = document.createElement("button");
     button_save.innerText = "保存";
@@ -1409,19 +1469,25 @@ function createConfigPage(){
         addToFavor = addToFavor_input.checked;
         useCheckbox = useCheckbox_input.checked;
         DLMultiple = DLMultiple_input.checked;
+        createSubfolder = createSubfolder_input.checked;
         patt = new RegExp(patt_input.value);
         searchDirName = searchDirName_input.value;
         searchDirId = searchDirId_input.value;
+        dirNameFormater = dirNameFormater_input.value;
+        tagTranslation = tagTranslation_input.selectedOptions[0].value;
         waitTime = waitTime_input.value;
         GM_setValue("patt", patt.source);
         GM_setValue("saveTags", saveTags);
         GM_setValue("tagAuthor", tagAuthor);
+        GM_setValue("tagTranslation", tagTranslation);
         GM_setValue("addToFavor", addToFavor);
         GM_setValue("searchDirName", searchDirName);
         GM_setValue("searchDirId", searchDirId);
+        GM_setValue("dirNameFormater", dirNameFormater);
         GM_setValue("useCheckbox", useCheckbox);
         GM_setValue("DLMultiple", DLMultiple);
         GM_setValue("waitTime", waitTime);
+        GM_setValue("createSubfolder", createSubfolder);
         config_div.style.display = "none";
     });
     button_cancel.addEventListener("click",()=>{
@@ -1437,8 +1503,7 @@ function createConfigPage(){
     config_div.style.border = "1px solid #777777";
     config_div.style.borderRadius = "5px";
     config_div.style.boxShadow = "-5px 5px 10px rgb(0 0 0 / 50%)";
-    dark_mode = $(NIGHT_MODE).text() === "dark";
-    config_div.style.background = dark_mode ? "black" : "white";
+    config_div.style.background = isDarkMode() ? "black" : "white";
     document.body.appendChild(config_div);
     config_div.style.display = "none";
     return config_div;
