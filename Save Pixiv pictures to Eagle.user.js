@@ -752,7 +752,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                         data.folderId = dlFolderId;
                     }
                     downloadAll(data);
-                    changeStyle(button1);
+                    // changeStyle(button1);
                 });
                 button2.addEventListener("click", async () => {
                     let [data, author, id, name] = getSelectData();
@@ -768,7 +768,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                         data.folderId = dlFolderId;
                     }
                     downloadAll(data);
-                    changeStyle(button2);
+                    // changeStyle(button2);
                 });
     
                 function addButtons(){
