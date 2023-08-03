@@ -10,7 +10,7 @@
 // @downloadURL             https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @updateURL               https://greasyfork.org/scripts/419792-save-pixiv-pictures-to-eagle/code/Save%20Pixiv%20Pictures%20to%20Eagle.user.js
 // @icon		            https://www.pixiv.net/favicon.ico
-// @version                 0.6.7
+// @version                 0.6.8
 // @author                  miracleXL
 // @match                   https://www.pixiv.net/*
 // @connect                 localhost
@@ -23,7 +23,7 @@
 // @require                 https://code.jquery.com/jquery-3.5.1.min.js
 // ==/UserScript==
 
-// 修复：未能正确捕获夜间模式；尝试删除作者名最后的接稿中
+// 修复：未能正确捕获夜间模式；尝试删除作者名最后的接稿中；漫画模式的下载按键
 // 新增：可自定义新建文件夹名格式；可设置多图自动创建子文件夹；可设置只保存翻译标签或只保存原始标签
 
 // 更新设置项
@@ -88,6 +88,9 @@ const SELECT_CHECK = "input.sc-8ggyxi-4";
 const BUTTON_POS = ".sc-181ts2x-0"; // 下载按键位置
 const PIC_SRC = ".sc-1qpw8k9-3"; // 图片位置
 const SHOW_ALL_BUTTON = ".sc-emr523-0"; // 多图时显示全部的按键
+const MANGA_SRC = ".gtm-expand-full-size-illust" // ".sc-1oz5uvo-4"; // 漫画图片位置
+const READ_MANGA = ".sc-emr523-2" // 多图或漫画时下方按键的显示内容
+const MANGA_POS = ".sc-1qrul0z-8" // 漫画下方下载按键位置
 const PIC_END = ".gtm-illust-work-scroll-finish-reading" // 展开多图时结束元素
 const UGO_SRC = ".sc-tu09d3-1"; // 动图
 const TAG_SELECTOR = ".sc-pj1a4x-1"; // 标签和标签翻译
@@ -564,11 +567,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             });
         }
 
-        // 多图
-        function mangaPage(){
-            run_mode = "manga";
-            function getImagesData(){
-                let images = $(PIC_SRC);
+            function getImagesData(images){
                 if(images.length === 0){
                     alert("下载失败！");
                     return [null, null];
@@ -609,6 +608,9 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                 return [data, author, id, name];
             };
 
+        // 多图
+        function multiImagesPage(){
+            run_mode = "multi_images";
             let pos = $(BUTTON_POS);
             if(pos.length === 0) return;
             let button = createNormalButton("下载");
@@ -625,7 +627,7 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                         document.getElementsByClassName("gtm-main-bookmark")[0].click();
                     }catch(e){}
                 }
-                let [data, author, id, name] = getImagesData();
+                let [data, author, id, name] = getImagesData($(PIC_SRC));
                 let dlFolderId = await getFolderId(author, id);
                 if(data.items.length > 1 && createSubfolder){
                     let data = await createFolder(name, id, dlFolderId, true);
@@ -665,13 +667,13 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
                     changeStyle(button2);
                 });
 
-                function addMangaCheckbox(){
+                function addImagesCheckbox(){
                     let imgs = $(PIC_SRC);
                     imgs.each((index,element)=>{
                         element.before(createCheckbox());
                     });
                 }
-                waitForKeyElements(PIC_END, addMangaCheckbox, true);
+                waitForKeyElements(PIC_END, addImagesCheckbox, true);
             }
             let clickpos = $(PIC_SRC);
             if(clickpos.length !== 0){
@@ -684,6 +686,109 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             clickpos = $(".gtm-main-bookmark");
             if(clickpos.length !== 0){
                 clickpos[0].addEventListener("click",changeButton)
+            }
+        }
+        
+        // 漫画
+        function mangaPage(){
+            run_mode = "manga";
+            let pos = $(BUTTON_POS);
+            if(pos.length === 0) return;
+            let button = createNormalButton("下载");
+            pos[0].appendChild(button);
+            //绑定点击按钮时下载事件
+            button.addEventListener("click", async () => {
+                if (build_ver === ""){
+                    checkEagleStatus();
+                }
+                //下载同时自动点赞+收藏
+                if(addToFavor){
+                    try{
+                        document.getElementsByClassName("_35vRH4a")[0].click();
+                        document.getElementsByClassName("gtm-main-bookmark")[0].click();
+                    }catch(e){}
+                }
+                let [data, author, id, name] = getImagesData($(PIC_SRC));
+                let dlFolderId = await getFolderId(author, id);
+                if(data.items.length > 1 && createSubfolder){
+                    let data = await createFolder(name, id, dlFolderId, true);
+                    dlFolderId = data.id;
+                }
+                if(dlFolderId === undefined){
+                    console.log("创建文件夹失败！尝试直接下载……");
+                }
+                else{
+                    data.folderId = dlFolderId;
+                }
+                downloadAll(data);
+                changeStyle(button);
+            });
+            let added = false;
+            function createButtons(){
+                if(added) return;
+                added = true;
+                function createMangaButton(name){
+                    let button = document.createElement("button");
+                    button.className = "sc-1qrul0z-0 bWWzsr";
+                    button.innerHTML = `<svg viewBox="0 0 48 48" width="32" height="32"><path fill-rule="evenodd" clip-rule="evenodd" d="M31.4142 26.5858C32.1953 27.3668 32.1953 28.6332 31.4142 29.4142L25.4142 35.4142C24.6332 36.1953 23.3668 36.1953 22.5858 35.4142C21.8047 34.6332 21.8047 33.3668 22.5858 32.5858L28.5858 26.5858C29.3668 25.8047 30.6332 25.8047 31.4142 26.5858Z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M16.5858 26.5858C17.3668 25.8047 18.6332 25.8047 19.4142 26.5858L25.4142 32.5858C26.1953 33.3668 26.1953 34.6332 25.4142 35.4142C24.6332 36.1953 23.3668 36.1953 22.5858 35.4142L16.5858 29.4142C15.8047 28.6332 15.8047 27.3668 16.5858 26.5858Z"></path><path d="M22 14C22 12.8954 22.8954 12 24 12V12C25.1046 12 26 12.8954 26 14L26 34C26 35.1046 25.1046 36 24 36V36C22.8954 36 22 35.1046 22 34L22 14Z"></path></svg>`;
+                    let span = document.createElement("span");
+                    span.innerText = name;
+                    button.appendChild(span);
+                    return button;
+                }
+                let button1 = createMangaButton("下载全部");
+                let button2 = createMangaButton("下载选择");
+                button1.addEventListener("click", async () => {
+                    let [data, author, id, name] = getImagesData($(MANGA_SRC));
+                    let dlFolderId = await getFolderId(author, id);
+                    if(data.items.length > 1 && createSubfolder){
+                        let data = await createFolder(name, id, dlFolderId, true);
+                        dlFolderId = data.id;
+                    }
+                    if (dlFolderId === undefined) {
+                        console.log("创建文件夹失败！尝试直接下载……");
+                    }
+                    else {
+                        data.folderId = dlFolderId;
+                    }
+                    downloadAll(data);
+                    changeStyle(button1);
+                });
+                button2.addEventListener("click", async () => {
+                    let [data, author, id, name] = getSelectData();
+                    let dlFolderId = await getFolderId(author, id);
+                    if(data.items.length > 1 && createSubfolder){
+                        let data = await createFolder(name, id, dlFolderId, true);
+                        dlFolderId = data.id;
+                    }
+                    if (dlFolderId === undefined) {
+                        console.log("创建文件夹失败！尝试直接下载……");
+                    }
+                    else {
+                        data.folderId = dlFolderId;
+                    }
+                    downloadAll(data);
+                    changeStyle(button2);
+                });
+    
+                function addButtons(){
+                    // let imgs = $(MANGA_SRC);
+                    // imgs.each((index,element)=>{
+                    //     element.before(createCheckbox());
+                    // });
+                    let pos = $(MANGA_POS);
+                    pos[0].appendChild(button1);
+                    // pos[0].appendChild(button2);
+                }
+                waitForKeyElements(MANGA_POS, addButtons, true);
+            }
+            let clickpos = $(PIC_SRC);
+            if(clickpos.length !== 0){
+                clickpos[0].addEventListener("click",createButtons)
+            }
+            clickpos = $(SHOW_ALL_BUTTON);
+            if(clickpos.length !== 0){
+                clickpos[0].addEventListener("click",createButtons)
             }
         }
 
@@ -709,7 +814,12 @@ const sleep = (delay) => {return new Promise((resolve) => {return setTimeout(res
             return ugoiraPage();
         }
         if($(SHOW_ALL_BUTTON).length !== 0){
-            return mangaPage();
+            if($(READ_MANGA).text() === "查看全部"){
+                return multiImagesPage();
+            }
+            else{
+                return mangaPage();
+            }
         }
         return imagePage();
     };
